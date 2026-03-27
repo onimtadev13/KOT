@@ -1,0 +1,1 @@
+export const APIURL = "http://192.168.0.123:5555/api/AndroidApi/CommonExecute";
