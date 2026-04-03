@@ -37,7 +37,7 @@ const SECTIONS: DrawerSection[] = [
   {
     title: 'Orders',
     items: [
-      { key: 'Guest',              label: 'Guest',                      icon: 'person-outline',          screen: 'GuestDetails'   },
+      { key: 'Guest',              label: 'Guest',                      icon: 'person-outline',          screen: 'Home'   },
       { key: 'Menu',               label: 'Menu',                       icon: 'book-outline',            screen: 'Menu'           },
       { key: 'CurrentOrder',       label: 'Current Order',              icon: 'receipt-outline',         screen: undefined        },
       { key: 'PastOrders',         label: 'Past Orders',                icon: 'time-outline',            screen: 'PastOrders'    },
@@ -47,9 +47,9 @@ const SECTIONS: DrawerSection[] = [
   {
     title: 'Management',
     items: [
-      { key: 'Tables',    label: 'Tables',     icon: 'grid-outline',         screen: undefined },
+      { key: 'Tables',    label: 'Tables',     icon: 'grid-outline',         screen: 'Tables' },
       { key: 'Steward',   label: 'Steward',    icon: 'people-outline',       screen: undefined },
-      { key: 'Pits',      label: 'Pits',       icon: 'layers-outline',       screen: undefined },
+      { key: 'Pits',      label: 'Pits',       icon: 'layers-outline',       screen: 'PitsDetails' },
       { key: 'Reprint',   label: 'Reprint',    icon: 'print-outline',        screen: undefined },
       { key: 'IssueNote', label: 'Issue Note', icon: 'alert-circle-outline', screen: undefined },
     ],
@@ -183,7 +183,7 @@ export default function CustomDrawer(props: any) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Tokens
 // ─────────────────────────────────────────────────────────────────────────────
-const PURPLE     = '#6C1FC9';
+const PURPLE     = '#3D013C';
 const WHITE      = '#FFFFFF';
 const BG         = '#F5F6FA';
 const CARD       = '#FFFFFF';

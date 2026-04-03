@@ -7,13 +7,14 @@ import {
   FlatList,
   StatusBar,
   Platform,
-  ActivityIndicator,
   Image,
 } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useAppStore } from '../Store/store';
 import { loadPitCustomers, PitCustomerResult } from '../Api/api';
 import { DrawerActions, useNavigation, useFocusEffect } from '@react-navigation/native';
+import colors from '../themes/colors';
+import LottieView from 'lottie-react-native';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PitsCustomersScreen
@@ -27,7 +28,7 @@ export default function PitsCustomersScreen({
   navigation: any;
   route: any;
 }) {
-   const nav          = useNavigation<any>();
+  const nav          = useNavigation<any>();
   const { tblCode } = route.params as { tblCode: string };
   const device = useAppStore(state => state.device);
 
@@ -53,12 +54,12 @@ export default function PitsCustomersScreen({
   }
 
   function handleAddOrder(customer: PitCustomerResult) {
-  navigation.navigate('PitsCustomerDetails', {
-    MID:     customer.MID,
-    MName:   customer.MName,
-    tblCode: tblCode,
-  });
-}
+    navigation.navigate('PitsCustomerDetails', {
+      MID:     customer.MID,
+      MName:   customer.MName,
+      tblCode: tblCode,
+    });
+  }
 
   // ── Avatar — base64 image or fallback initial ───────────────────────────────
   function Avatar({ customer }: { customer: PitCustomerResult }) {
@@ -97,7 +98,7 @@ export default function PitsCustomersScreen({
         <View style={S.cardInfo}>
           <Text style={S.custName} numberOfLines={2}>{item.MName ?? 'Unknown'}</Text>
           <View style={S.idChip}>
-            <Ionicons name="card-outline" size={10} color={AMBER} />
+            <Ionicons name="card-outline" size={10} color={colors.pitsCustomers.amber} />
             <Text style={S.idChipText}>{item.MID ?? '—'}</Text>
           </View>
         </View>
@@ -108,7 +109,7 @@ export default function PitsCustomersScreen({
           onPress={() => handleAddOrder(item)}
           activeOpacity={0.8}
         >
-          <Ionicons name="add" size={22} color={WHITE} />
+          <Ionicons name="add" size={22} color={colors.white} />
         </TouchableOpacity>
       </View>
     );
@@ -117,88 +118,71 @@ export default function PitsCustomersScreen({
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <View style={S.flex}>
-      <StatusBar barStyle="light-content" backgroundColor={PURPLE_DEEP} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.pitsCustomers.purpleDeep} />
 
       {/* ── Nav bar ── */}
       <View style={S.navBar}>
-        {/* <TouchableOpacity
-          style={S.navIconBtn}
-          onPress={() => navigation.goBack()}
+        {/* Hamburger */}
+        <TouchableOpacity
+          style={S.iconBtn}
+          onPress={() => nav.dispatch(DrawerActions.openDrawer())}
           activeOpacity={0.75}
         >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </TouchableOpacity> */}
-
-         {/* Hamburger */}
-          <TouchableOpacity
-            style={S.iconBtn}
-            onPress={() => nav.dispatch(DrawerActions.openDrawer())}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="menu-outline" size={22} color="#fff" />
-          </TouchableOpacity>
+          <Ionicons name="menu-outline" size={22} color={colors.white} />
+        </TouchableOpacity>
 
         <View style={S.navTitleWrap}>
           <Text style={S.navTitle}>{tblCode}</Text>
           <Text style={S.navSub}>Kitchen Order Ticket</Text>
         </View>
 
+        {/* Doc chip — matches ExecutiveStaffScreen */}
         {device?.Doc_No ? (
           <View style={S.docChip}>
-            <Text style={S.docChipText}>#{device.Doc_No}</Text>
+            <View style={S.docChipIconRow}>
+              <Ionicons name="document-text-outline" size={10} color={colors.docChip.labelText} />
+              <Text style={S.docChipLabel}>Doc No</Text>
+            </View>
+            <Text style={S.docChipValue}>{device.Doc_No}</Text>
           </View>
         ) : (
-          <View style={{ width: 60 }} />
+          <View style={{ width: 72 }} />
         )}
       </View>
-
-      {/* ── Table strip ── */}
-      {/* <View style={S.tableStrip}>
-        <View style={S.tableStripBadge}>
-          <Ionicons name="easel-outline" size={14} color={WHITE} />
-          <Text style={S.tableStripBadgeText}>{tblCode}</Text>
-        </View>
-        <Text style={S.tableStripSub}>
-          {loading
-            ? 'Loading customers…'
-            : error
-            ? 'Could not load'
-            : `${customers.length} customer${customers.length !== 1 ? 's' : ''}`}
-        </Text>
-        {!loading && !error && (
-          <TouchableOpacity onPress={fetchCustomers} style={S.refreshBtn}>
-            <Ionicons name="refresh-outline" size={16} color={WHITE} />
-          </TouchableOpacity>
-        )}
-      </View> */}
 
       {/* ── Content ── */}
       {loading ? (
         <View style={S.centerWrap}>
-          <ActivityIndicator size="large" color={AMBER} />
-          <Text style={S.loadingText}>Loading customers…</Text>
+          {/* <ActivityIndicator size="large" color={colors.pitsCustomers.amber} />
+          <Text style={S.loadingText}>Loading customers…</Text> */}
+          <LottieView
+      source={require('../../assets/animations/Loading_Animation.json')}
+      autoPlay
+      loop
+      style={{ width: 120, height: 120 }}
+    />
         </View>
       ) : error ? (
         <View style={S.centerWrap}>
           <View style={S.emptyIconWrap}>
-            <Ionicons name="cloud-offline-outline" size={32} color={TEXT_LIGHT} />
+            <Ionicons name="cloud-offline-outline" size={32} color={colors.pitsCustomers.textLight} />
           </View>
           <Text style={S.emptyTitle}>Could not load customers</Text>
           <Text style={S.emptySub}>{error}</Text>
           <TouchableOpacity style={S.retryBtn} onPress={fetchCustomers} activeOpacity={0.8}>
-            <Ionicons name="refresh-outline" size={15} color={WHITE} />
+            <Ionicons name="refresh-outline" size={15} color={colors.white} />
             <Text style={S.retryBtnText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : customers.length === 0 ? (
         <View style={S.centerWrap}>
           <View style={S.emptyIconWrap}>
-            <Ionicons name="people-outline" size={32} color={TEXT_LIGHT} />
+            <Ionicons name="people-outline" size={32} color={colors.pitsCustomers.textLight} />
           </View>
           <Text style={S.emptyTitle}>No customers found</Text>
           <Text style={S.emptySub}>No customers assigned to {tblCode}</Text>
           <TouchableOpacity style={S.retryBtn} onPress={fetchCustomers} activeOpacity={0.8}>
-            <Ionicons name="refresh-outline" size={15} color={WHITE} />
+            <Ionicons name="refresh-outline" size={15} color={colors.white} />
             <Text style={S.retryBtnText}>Refresh</Text>
           </TouchableOpacity>
         </View>
@@ -216,73 +200,95 @@ export default function PitsCustomersScreen({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tokens
-// ─────────────────────────────────────────────────────────────────────────────
-const PURPLE_DEEP = '#3B0F8C';
-const AMBER       = '#B45309';
-const ORANGE      = '#F5830A';
-const WHITE       = '#FFFFFF';
-const BG          = '#F5F6FA';
-const CARD        = '#FFFFFF';
-const BORDER      = '#EDF0F4';
-const TEXT_DARK   = '#1A1D2E';
-const TEXT_MID    = '#6B7280';
-const TEXT_LIGHT  = '#B0B8C1';
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Styles
 // ─────────────────────────────────────────────────────────────────────────────
 const S = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: BG },
+  flex: { flex: 1, backgroundColor: colors.pitsCustomers.bg },
 
   // ── Nav bar ──
   navBar: {
-    backgroundColor: PURPLE_DEEP,
-    paddingTop: Platform.OS === 'ios' ? 52 : 32,
-    paddingBottom: 14,
+    backgroundColor:   colors.pitsCustomers.purpleDeep,
+    paddingTop:        Platform.OS === 'ios' ? 52 : 32,
+    paddingBottom:     14,
     paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               8,
   },
-  navIconBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
+  iconBtn: {
+    width:           36,
+    height:          36,
+    borderRadius:    10,
+    backgroundColor: colors.overlay.white15,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
   navTitleWrap: { flex: 1, alignItems: 'center' },
-  navTitle: { fontSize: 18, fontWeight: '800', color: WHITE, letterSpacing: 1 },
-  navSub:   { fontSize: 9, color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, marginTop: 1 },
-  docChip: {
-    backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)',
-  },
-  docChipText: { fontSize: 11, color: WHITE, fontWeight: '600' },
+  navTitle: { fontSize: 18, fontWeight: '800', color: colors.white, letterSpacing: 1 },
+  navSub:   { fontSize: 9,  color: colors.overlay.muted65, letterSpacing: 1.5, marginTop: 1 },
 
-  // ── Table strip ──
+  // ── Doc chip — matches ExecutiveStaffScreen ───────────────────────────────
+  docChip: {
+    backgroundColor:   colors.docChip.bg,
+    borderRadius:      12,
+    paddingHorizontal: 10,
+    paddingVertical:    7,
+    alignItems:        'center',
+    minWidth:          72,
+  },
+  docChipIconRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 },
+  docChipLabel: {
+    fontSize:      8,
+    color:         colors.docChip.labelText,
+    fontWeight:    '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  docChipValue: {
+    fontSize:      15,
+    color:         colors.docChip.valueText,
+    fontWeight:    '900',
+    letterSpacing: -0.3,
+  },
+
+  // ── Table strip (commented out in original — kept commented) ──────────────
   tableStrip: {
-    backgroundColor: ORANGE,
-    marginHorizontal: 14, marginTop: 14, marginBottom: 4,
-    borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor:  colors.pitsCustomers.orange,
+    marginHorizontal: 14,
+    marginTop:        14,
+    marginBottom:     4,
+    borderRadius:     16,
+    paddingHorizontal: 16,
+    paddingVertical:  14,
+    flexDirection:    'row',
+    alignItems:       'center',
+    gap:              10,
   },
   tableStripBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.35)',
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               6,
+    backgroundColor:   colors.overlay.white20,
+    paddingHorizontal: 12,
+    paddingVertical:   6,
+    borderRadius:      20,
+    borderWidth:       1.5,
+    borderColor:       colors.pitsCustomers.stripBadgeBorder,
   },
-  tableStripBadgeText: { fontSize: 13, fontWeight: '800', color: WHITE },
+  tableStripBadgeText: { fontSize: 13, fontWeight: '800', color: colors.white },
   tableStripSub: {
-    fontSize: 12, color: 'rgba(255,255,255,0.85)',
-    fontWeight: '500', flex: 1,
+    fontSize:   12,
+    color:      colors.pitsCustomers.stripSubText,
+    fontWeight: '500',
+    flex:       1,
   },
   refreshBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', justifyContent: 'center',
+    width:           32,
+    height:          32,
+    borderRadius:    16,
+    backgroundColor: colors.overlay.white20,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
 
   // ── List ──
@@ -290,87 +296,104 @@ const S = StyleSheet.create({
 
   // ── Customer card ──
   customerCard: {
-    backgroundColor: CARD,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: colors.pitsCustomers.card,
+    borderRadius:    16,
+    borderWidth:     1,
+    borderColor:     colors.pitsCustomers.border,
+    flexDirection:   'row',
+    alignItems:      'center',
+    overflow:        'hidden',
+    shadowColor:     colors.pitsCustomers.shadowCard,
+    shadowOffset:    { width: 0, height: 2 },
+    shadowOpacity:   0.07,
+    shadowRadius:    8,
+    elevation:       3,
   },
-  cardAccent: { width: 4, alignSelf: 'stretch', backgroundColor: AMBER },
+  cardAccent: { width: 4, alignSelf: 'stretch', backgroundColor: colors.pitsCustomers.amber },
 
   // ── Avatar ──
   avatarWrap: { marginLeft: 14, marginVertical: 14 },
   avatar: {
-    width: 100, height: 100, borderRadius: 50,
-    borderWidth: 2.5, borderColor: '#FEF3C7',
+    width:        100,
+    height:       100,
+    borderRadius: 50,
+    borderWidth:  2.5,
+    borderColor:  colors.pitsCustomers.avatarBorder,
   },
   avatarFallback: {
-    backgroundColor: AMBER,
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.pitsCustomers.amber,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
-  avatarInitial: {
-    fontSize: 22, fontWeight: '800', color: WHITE,
-  },
+  avatarInitial: { fontSize: 22, fontWeight: '800', color: colors.white },
 
   // ── Info ──
   cardInfo: { flex: 1, paddingHorizontal: 14, paddingVertical: 14 },
   custName: {
-    fontSize: 14, fontWeight: '700',
-    color: TEXT_DARK, marginBottom: 6, lineHeight: 20,
+    fontSize:     14,
+    fontWeight:   '700',
+    color:        colors.pitsCustomers.textDark,
+    marginBottom: 6,
+    lineHeight:   20,
   },
   idChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#FEF3C7',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 20, borderWidth: 1, borderColor: '#FDE68A',
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               4,
+    backgroundColor:   colors.pitsCustomers.idChipBg,
+    alignSelf:         'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical:   3,
+    borderRadius:      20,
+    borderWidth:       1,
+    borderColor:       colors.pitsCustomers.idChipBorder,
   },
   idChipText: {
-    fontSize: 11, fontWeight: '700',
-    color: AMBER, letterSpacing: 0.3,
+    fontSize:      11,
+    fontWeight:    '700',
+    color:         colors.pitsCustomers.amber,
+    letterSpacing: 0.3,
   },
 
   // ── Plus button ──
   plusBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: PURPLE_DEEP,
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: 14,
-    shadowColor: PURPLE_DEEP,
-    shadowOffset: { width: 0, height: 3 },
+    width:         40,
+    height:        40,
+    borderRadius:  20,
+    backgroundColor: colors.pitsCustomers.purpleDeep,
+    alignItems:    'center',
+    justifyContent:'center',
+    marginRight:   14,
+    shadowColor:   colors.pitsCustomers.purpleDeep,
+    shadowOffset:  { width: 0, height: 3 },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowRadius:  6,
+    elevation:     4,
   },
 
   // ── Center states ──
-  centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { fontSize: 14, color: TEXT_MID, fontWeight: '500' },
+  centerWrap:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: colors.pitsCustomers.textMid, fontWeight: '500' },
   emptyIconWrap: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+    width:           64,
+    height:          64,
+    borderRadius:    32,
+    backgroundColor: colors.pitsCustomers.emptyIconBg,
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    4,
   },
-  emptyTitle: { fontSize: 15, fontWeight: '600', color: TEXT_MID },
-  emptySub:   { fontSize: 12, color: TEXT_LIGHT, textAlign: 'center' },
+  emptyTitle: { fontSize: 15, fontWeight: '600', color: colors.pitsCustomers.textMid },
+  emptySub:   { fontSize: 12, color: colors.pitsCustomers.textLight, textAlign: 'center' },
   retryBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: PURPLE_DEEP,
-    paddingHorizontal: 20, paddingVertical: 10,
-    borderRadius: 20, marginTop: 4,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               6,
+    backgroundColor:   colors.pitsCustomers.purpleDeep,
+    paddingHorizontal: 20,
+    paddingVertical:   10,
+    borderRadius:      20,
+    marginTop:         4,
   },
-  retryBtnText: { fontSize: 13, fontWeight: '700', color: WHITE },
-  iconBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-
+  retryBtnText: { fontSize: 13, fontWeight: '700', color: colors.white },
 });

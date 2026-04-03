@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,13 @@ import {
 } from 'react-native';
 import { DrawerActions, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@react-native-vector-icons/ionicons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppStore } from '../Store/store';
+import colors from '../themes/colors';
+import { loadButtonVisibility } from '../Api/api';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Must match SettingsScreen SETTINGS_KEY exactly
+// Button definitions
 // ─────────────────────────────────────────────────────────────────────────────
-const SETTINGS_KEY = '@kot_visible_buttons';
-
 type OrderButton = {
   key:   string;
   label: string;
@@ -27,42 +26,41 @@ type OrderButton = {
 };
 
 const ORDER_BUTTONS: OrderButton[] = [
-  { key: 'GUEST',           label: 'Guest',          icon: 'person-outline',     color: '#6C1FC9', bg: '#F3EEFF' },
-  { key: 'VISITOR',         label: 'Visitor',         icon: 'walk-outline',       color: '#0369A1', bg: '#E0F2FE' },
-  { key: 'EXECUTIVE_STAFF', label: 'Executive Staff', icon: 'briefcase-outline',  color: '#0F766E', bg: '#CCFBF1' },
-  { key: 'PITS',            label: 'Pits',            icon: 'grid-outline',       color: '#B45309', bg: '#FEF3C7' },
-  { key: 'TABLES',          label: 'Tables',          icon: 'restaurant-outline', color: '#B91C1C', bg: '#FEE2E2' },
-  { key: 'QR_SCAN',         label: 'QR Scan',         icon: 'qr-code-outline',    color: '#1D4ED8', bg: '#DBEAFE' },
-  { key: 'VIP',             label: 'VIP',             icon: 'star-outline',       color: '#92400E', bg: '#FDE68A' },
+  { key: 'GUEST',           label: 'Guest',          icon: 'person-outline',     color: colors.buttons.guest.color,          bg: colors.buttons.guest.bg          },
+  { key: 'VISITOR',         label: 'Visitor',         icon: 'walk-outline',       color: colors.buttons.visitor.color,        bg: colors.buttons.visitor.bg        },
+  { key: 'EXECUTIVE_STAFF', label: 'Executive Staff', icon: 'briefcase-outline',  color: colors.buttons.executiveStaff.color, bg: colors.buttons.executiveStaff.bg },
+  { key: 'PITS',            label: 'Pits',            icon: 'grid-outline',       color: colors.buttons.pits.color,           bg: colors.buttons.pits.bg           },
+  { key: 'TABLES',          label: 'Tables',          icon: 'restaurant-outline', color: colors.buttons.tables.color,         bg: colors.buttons.tables.bg         },
+  { key: 'QR_SCAN',         label: 'QR Scan',         icon: 'qr-code-outline',    color: colors.buttons.qrScan.color,         bg: colors.buttons.qrScan.bg         },
+  { key: 'VIP',             label: 'VIP',             icon: 'star-outline',       color: colors.buttons.vip.color,            bg: colors.buttons.vip.bg            },
 ];
 
-// Default — all enabled (matches SettingsScreen default)
-const DEFAULT_VISIBLE: Record<string, boolean> = Object.fromEntries(
-  ORDER_BUTTONS.map(b => [b.key, true]),
-);
-
 export default function HomeScreen({ navigation }: { navigation: any }) {
-  const nav          = useNavigation<any>();
-  const session      = useAppStore(state => state.session);
-  const device       = useAppStore(state => state.device);
-  const clearSession = useAppStore(state => state.clearSession);
+  const nav            = useNavigation<any>();
+  const session        = useAppStore(state => state.session);
+  const device         = useAppStore(state => state.device);
+  const clearSession   = useAppStore(state => state.clearSession);
   const orderItemCount = useAppStore(state => state.orderItemCount);
 
-  const empName  = session?.Emp_Name ?? 'User';
+  const empName   = session?.Emp_Name ?? 'User';
   const itemCount = orderItemCount();
 
-  const [buttonVisible, setButtonVisible] = useState<Record<string, boolean>>(DEFAULT_VISIBLE);
+  // Visibility map — keyed by button key, value = isActive from API
+  const [buttonVisible, setButtonVisible] = useState<Record<string, boolean>>({});
 
-  // ── Reload visibility every time this screen comes into focus ──────────────
-  // This ensures settings changes are reflected immediately on return
+  // Re-fetch every time the screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      AsyncStorage.getItem(SETTINGS_KEY).then(raw => {
-        if (raw) {
-          try { setButtonVisible(JSON.parse(raw)); } catch {}
+      loadButtonVisibility(
+        device?.Device_Id ?? 0,
+        device?.Doc_No   ?? '',
+        device?.UniqueId ?? '',
+      ).then(map => {
+        if (Object.keys(map).length > 0) {
+          setButtonVisible(map);
         }
       });
-    }, []),
+    }, [device]),
   );
 
   function handleLogout() {
@@ -76,43 +74,42 @@ export default function HomeScreen({ navigation }: { navigation: any }) {
       case 'VISITOR':         navigation.navigate('VisitorDetails'); break;
       case 'EXECUTIVE_STAFF': navigation.navigate('ExecutiveStaff'); break;
       case 'PITS':            navigation.navigate('PitsDetails');    break;
-      // case 'TABLES':       navigation.navigate('TablesDetails');  break;
-      // case 'QR_SCAN':      navigation.navigate('QRScanDetails');  break;
-      // case 'VIP':          navigation.navigate('VIPDetails');     break;
+      case 'TABLES':          navigation.navigate('Tables');         break;
       default: break;
     }
   }
 
+  // Only render buttons that are active per API
+  const visibleButtons = ORDER_BUTTONS.filter(btn => buttonVisible[btn.key] ?? false);
+
   return (
     <View style={S.flex}>
-      <StatusBar barStyle="light-content" backgroundColor={PURPLE} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* ── Purple header ── */}
+      {/* ── Header ── */}
       <View style={S.header}>
-        <View style={S.headerRow}>
 
-          {/* Hamburger */}
+        {/* Top row */}
+        <View style={S.headerRow}>
           <TouchableOpacity
             style={S.iconBtn}
             onPress={() => nav.dispatch(DrawerActions.openDrawer())}
             activeOpacity={0.75}
           >
-            <Ionicons name="menu-outline" size={22} color="#fff" />
+            <Ionicons name="menu-outline" size={22} color={colors.white} />
           </TouchableOpacity>
 
-          {/* Title */}
           <View style={S.headerTitleWrap}>
             <Text style={S.headerTitle}>KOT</Text>
             <Text style={S.headerSub}>Kitchen Order Ticket</Text>
           </View>
 
-          {/* Right actions */}
-          <View style={S.headerActions}>         
-            <TouchableOpacity style={S.iconBtn}>
-              <Ionicons name="notifications-outline" size={20} color="#fff" />
+          <View style={S.headerActions}>
+            <TouchableOpacity style={S.iconBtn} onPress={() => navigation.navigate('CurrentOrder')}>
+              <Ionicons name="cart-outline" size={20} color={colors.white} />
             </TouchableOpacity>
             <TouchableOpacity style={S.iconBtn} onPress={handleLogout}>
-              <Ionicons name="log-out-outline" size={20} color="#fff" />
+              <Ionicons name="log-out-outline" size={20} color={colors.white} />
             </TouchableOpacity>
           </View>
         </View>
@@ -122,14 +119,16 @@ export default function HomeScreen({ navigation }: { navigation: any }) {
           <View style={S.greetAvatar}>
             <Text style={S.greetAvatarText}>{empName.charAt(0).toUpperCase()}</Text>
           </View>
+
           <View style={S.greetInfo}>
             <Text style={S.greetName}>Hello, {empName}</Text>
             <Text style={S.greetRole}>{session?.TabLocation ?? 'Kitchen Staff'}</Text>
           </View>
+
           {device?.Doc_No ? (
             <View style={S.docChip}>
               <View style={S.docChipIconRow}>
-                <Ionicons name="document-text-outline" size={11} color={ORANGE} />
+                <Ionicons name="document-text-outline" size={11} color={colors.docChip.labelText} />
                 <Text style={S.docChipLabel}>Doc No</Text>
               </View>
               <Text style={S.docChipValue}>{device.Doc_No}</Text>
@@ -138,62 +137,35 @@ export default function HomeScreen({ navigation }: { navigation: any }) {
         </View>
       </View>
 
+      {/* ── Scrollable grid ── */}
       <ScrollView
         style={S.scroll}
         contentContainerStyle={S.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={S.grid}>
-          {ORDER_BUTTONS.map((btn, index) => {
-            const isEnabled = buttonVisible[btn.key] ?? true;
-            const isLast    = index === ORDER_BUTTONS.length - 1;
-            const isOdd     = ORDER_BUTTONS.length % 2 !== 0;
+          {visibleButtons.map((btn, index) => {
+            const isLast    = index === visibleButtons.length - 1;
+            const isOdd     = visibleButtons.length % 2 !== 0;
             const fullWidth = isLast && isOdd;
 
             return (
               <TouchableOpacity
                 key={btn.key}
-                style={[
-                  S.gridCard,
-                  fullWidth && S.gridCardFull,
-                  !isEnabled && S.gridCardDisabled,
-                ]}
-                onPress={() => isEnabled && handleOrderButton(btn.key)}
-                activeOpacity={isEnabled ? 0.82 : 1}
+                style={[S.gridCard, fullWidth && S.gridCardFull]}
+                onPress={() => handleOrderButton(btn.key)}
+                activeOpacity={0.82}
               >
-                {/* Disabled overlay badge */}
-                {!isEnabled && (
-                  <View style={S.disabledBadge}>
-                    <Ionicons name="ban-outline" size={10} color="#9CA3AF" />
-                    <Text style={S.disabledBadgeText}>OFF</Text>
-                  </View>
-                )}
-
-                <View style={[S.cardIconWrap, { backgroundColor: isEnabled ? btn.bg : '#F3F4F6' }]}>
-                  <Ionicons
-                    name={btn.icon as any}
-                    size={26}
-                    color={isEnabled ? btn.color : '#C4CCDA'}
-                  />
+                <View style={[S.cardIconWrap, { backgroundColor: btn.bg }]}>
+                  <Ionicons name={btn.icon as any} size={26} color={btn.color} />
                 </View>
 
-                <Text style={[
-                  S.cardLabel,
-                  fullWidth && { flex: 1 },
-                  !isEnabled && S.cardLabelDisabled,
-                ]}>
+                <Text style={[S.cardLabel, fullWidth && S.cardLabelFull]}>
                   {btn.label}
                 </Text>
 
-                <View style={[
-                  S.cardArrow,
-                  { backgroundColor: isEnabled ? btn.bg : '#F3F4F6' },
-                ]}>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={12}
-                    color={isEnabled ? btn.color : '#C4CCDA'}
-                  />
+                <View style={[S.cardArrow, { backgroundColor: btn.bg }]}>
+                  <Ionicons name="chevron-forward" size={12} color={btn.color} />
                 </View>
               </TouchableOpacity>
             );
@@ -205,28 +177,20 @@ export default function HomeScreen({ navigation }: { navigation: any }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tokens
+// Styles
 // ─────────────────────────────────────────────────────────────────────────────
-const PURPLE = '#6C1FC9';
-const ORANGE = '#F5830A';
-const WHITE  = '#FFFFFF';
-const BG     = '#F5F6FA';
-const CARD   = '#FFFFFF';
-const BORDER = '#EDF0F4';
-const TEXT_DARK = '#1A1D2E';
-
 const S = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: BG },
+  flex: { flex: 1, backgroundColor: colors.background },
 
-  // ── Header ──
   header: {
-    backgroundColor:       PURPLE,
-    paddingTop:            Platform.OS === 'ios' ? 56 : 36,
-    paddingBottom:         24,
-    paddingHorizontal:     20,
+    backgroundColor:         colors.primary,
+    paddingTop:              Platform.OS === 'ios' ? 56 : 36,
+    paddingBottom:           24,
+    paddingHorizontal:       20,
     borderBottomLeftRadius:  28,
     borderBottomRightRadius: 28,
   },
+
   headerRow: {
     flexDirection: 'row',
     alignItems:    'center',
@@ -234,67 +198,103 @@ const S = StyleSheet.create({
     gap:           10,
   },
   headerTitleWrap: { flex: 1 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: WHITE, letterSpacing: 2 },
-  headerSub:   { fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginTop: 1 },
+  headerTitle: {
+    fontSize:      22,
+    fontWeight:    '800',
+    color:         colors.white,
+    letterSpacing: 2,
+  },
+  headerSub: {
+    fontSize:      10,
+    color:         colors.overlay.muted70,
+    letterSpacing: 1,
+    marginTop:     1,
+  },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+
   iconBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
+    width:           36,
+    height:          36,
+    borderRadius:    10,
+    backgroundColor: colors.overlay.white15,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
-  badge: {
-    position: 'absolute', top: -4, right: -4,
-    minWidth: 16, height: 16, borderRadius: 8,
-    backgroundColor: ORANGE,
-    alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5, borderColor: PURPLE,
-  },
-  badgeText: { fontSize: 9, fontWeight: '800', color: WHITE },
 
   greetRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+
   greetAvatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)',
+    width:           44,
+    height:          44,
+    borderRadius:    22,
+    backgroundColor: colors.overlay.gold15,
+    alignItems:      'center',
+    justifyContent:  'center',
+    borderWidth:     2,
+    borderColor:     colors.overlay.gold45,
   },
-  greetAvatarText: { fontSize: 18, fontWeight: '800', color: WHITE },
+  greetAvatarText: { fontSize: 18, fontWeight: '800', color: colors.gold },
+
   greetInfo: { flex: 1 },
-  greetName: { fontSize: 15, fontWeight: '700', color: WHITE, letterSpacing: 0.1 },
-  greetRole: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  greetName: { fontSize: 15, fontWeight: '700', color: colors.white, letterSpacing: 0.1 },
+  greetRole: { fontSize: 11, color: colors.overlay.muted65, marginTop: 2 },
+
   docChip: {
-    backgroundColor: '#FFF3E6', borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 8,
-    alignItems: 'center',
-    borderWidth: 1.5, borderColor: ORANGE,
-    minWidth: 84,
-    shadowColor: ORANGE, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25, shadowRadius: 6, elevation: 4,
+    backgroundColor:   colors.docChip.bg,
+    borderRadius:      14,
+    paddingHorizontal: 14,
+    paddingVertical:   9,
+    alignItems:        'center',
+    minWidth:          88,
+    shadowColor:       '#000000',
+    shadowOffset:      { width: 0, height: 3 },
+    shadowOpacity:     0.35,
+    shadowRadius:      6,
+    elevation:         5,
   },
-  docChipIconRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 },
-  docChipLabel:  { fontSize: 9, color: ORANGE, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
-  docChipValue:  { fontSize: 15, color: '#B45309', fontWeight: '800', letterSpacing: -0.3 },
+  docChipIconRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           4,
+    marginBottom:  3,
+  },
+  docChipLabel: {
+    fontSize:      9,
+    color:         colors.docChip.labelText,
+    fontWeight:    '700',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+  },
+  docChipValue: {
+    fontSize:      19,
+    color:         colors.docChip.valueText,
+    fontWeight:    '900',
+    letterSpacing: -0.4,
+    lineHeight:    22,
+  },
 
   scroll:        { flex: 1 },
   scrollContent: { paddingBottom: 32 },
 
-  // ── Grid ──
   grid: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    paddingHorizontal: 16, paddingTop: 16, gap: 12,
+    flexDirection:    'row',
+    flexWrap:         'wrap',
+    paddingHorizontal: 16,
+    paddingTop:       16,
+    gap:              12,
   },
+
   gridCard: {
     width:           '47%',
-    backgroundColor: CARD,
+    backgroundColor: colors.card,
     borderRadius:    16,
     borderWidth:     1,
-    borderColor:     BORDER,
+    borderColor:     colors.border,
     padding:         16,
     alignItems:      'flex-start',
-    shadowColor:     '#9CA3AF',
+    shadowColor:     colors.shadow.card,
     shadowOffset:    { width: 0, height: 2 },
-    shadowOpacity:   0.08,
+    shadowOpacity:   0.07,
     shadowRadius:    8,
     elevation:       3,
     position:        'relative',
@@ -305,44 +305,31 @@ const S = StyleSheet.create({
     alignItems:    'center',
     gap:           16,
   },
-  gridCardDisabled: {
-    backgroundColor: '#FAFAFA',
-    borderColor:     '#EBEBEB',
-    shadowOpacity:   0,
-    elevation:       0,
-    opacity:         0.7,
-  },
 
   cardIconWrap: {
-    width: 52, height: 52, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12,
+    width:          52,
+    height:         52,
+    borderRadius:   14,
+    alignItems:     'center',
+    justifyContent: 'center',
+    marginBottom:   12,
   },
   cardLabel: {
-    fontSize: 14, fontWeight: '700', color: TEXT_DARK, letterSpacing: -0.2,
+    fontSize:      18,
+    fontWeight:    '700',
+    color:         colors.text.dark,
+    letterSpacing: -0.2,
   },
-  cardLabelDisabled: { color: '#C4CCDA' },
-  cardArrow: {
-    position: 'absolute', top: 12, right: 12,
-    width: 22, height: 22, borderRadius: 11,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  cardLabelFull: { flex: 1 },
 
-  // Disabled "OFF" badge in top-left
-  disabledBadge: {
-    position:         'absolute',
-    top:              10,
-    left:             10,
-    flexDirection:    'row',
-    alignItems:       'center',
-    gap:              3,
-    backgroundColor:  '#F3F4F6',
-    borderRadius:     20,
-    paddingHorizontal:6,
-    paddingVertical:  2,
-    borderWidth:      1,
-    borderColor:      '#E5E7EB',
-    zIndex:           1,
+  cardArrow: {
+    position:       'absolute',
+    top:            12,
+    right:          12,
+    width:          22,
+    height:         22,
+    borderRadius:   11,
+    alignItems:     'center',
+    justifyContent: 'center',
   },
-  disabledBadgeText: { fontSize: 9, fontWeight: '700', color: '#9CA3AF', letterSpacing: 0.5 },
 });

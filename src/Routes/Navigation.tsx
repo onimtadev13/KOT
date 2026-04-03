@@ -19,6 +19,9 @@ import { useAppStore } from '../Store/store';
 import PitsCustomersScreen from '../Screens/PitsCustomersScreen';
 import SettingsScreen from '../Screens/SettingsScreen';
 import CurrentOrderScreen         from '../Screens/CurrentOrderScreen';
+import TablesScreen from '../Screens/TablesScreen';
+import PitsPastOrdersScreen from '../Screens/PitsPastOrdersScreen';
+import PitsPastOrdersResultsScreen from '../Screens/PitsPastOrdersResultsScreen';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Route param lists
@@ -68,6 +71,9 @@ export type AppStackParamList = {
   CurrentOrder:        undefined;
   PastOrders:          undefined;
   Settings:            undefined;
+  Tables: undefined;
+  PitsPastOrders: { MID: string; MName: string; tblCode: string }; 
+  PitsPastOrdersResults: undefined;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,6 +100,10 @@ function AppStackNavigator() {
       <AppStack.Screen name="CurrentOrder"         component={CurrentOrderScreen} />
       <AppStack.Screen name="PastOrders"           component={PastOrdersScreen} />
       <AppStack.Screen name="Settings"             component={SettingsScreen} />
+      <AppStack.Screen name="Tables" component={TablesScreen} />
+      <AppStack.Screen name="PitsPastOrders" component={PitsPastOrdersScreen} />
+      <AppStack.Screen name="PitsPastOrdersResults" component={PitsPastOrdersResultsScreen} />
+
     </AppStack.Navigator>
   );
 }

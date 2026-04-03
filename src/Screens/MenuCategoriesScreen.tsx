@@ -21,6 +21,8 @@ import {
   MenuItemResult,
 } from '../Api/api';
 import { DrawerActions, useNavigation, useFocusEffect } from '@react-navigation/native';
+import colors from '../themes/colors';
+import LottieView from 'lottie-react-native';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -41,28 +43,20 @@ interface SearchSection {
 // ─────────────────────────────────────────────────────────────────────────────
 function getCatIcon(name: string): string {
   const n = name.toLowerCase();
-  if (n.includes('biriyani'))                         return 'flame-outline';
-  if (n.includes('buffet'))                           return 'restaurant-outline';
-  if (n.includes('chicken'))                          return 'nutrition-outline';
-  if (n.includes('curry'))                            return 'color-palette-outline';
-  if (n.includes('dessert') || n.includes('sweet'))   return 'ice-cream-outline';
-  if (n.includes('bread'))                            return 'pizza-outline';
-  if (n.includes('seafood') || n.includes('fish'))    return 'fish-outline';
-  if (n.includes('soup'))                             return 'cafe-outline';
-  if (n.includes('veg'))                              return 'leaf-outline';
-  if (n.includes('drink')   || n.includes('beverage'))return 'wine-outline';
+  if (n.includes('biriyani'))                          return 'flame-outline';
+  if (n.includes('buffet'))                            return 'restaurant-outline';
+  if (n.includes('chicken'))                           return 'nutrition-outline';
+  if (n.includes('curry'))                             return 'color-palette-outline';
+  if (n.includes('dessert') || n.includes('sweet'))    return 'ice-cream-outline';
+  if (n.includes('bread'))                             return 'pizza-outline';
+  if (n.includes('seafood') || n.includes('fish'))     return 'fish-outline';
+  if (n.includes('soup'))                              return 'cafe-outline';
+  if (n.includes('veg'))                               return 'leaf-outline';
+  if (n.includes('drink')   || n.includes('beverage')) return 'wine-outline';
   return 'grid-outline';
 }
 
-const CAT_COLORS = [
-  { color: '#6C1FC9', bg: '#F3EEFF' },
-  { color: '#0369A1', bg: '#E0F2FE' },
-  { color: '#0F766E', bg: '#CCFBF1' },
-  { color: '#B45309', bg: '#FEF3C7' },
-  { color: '#B91C1C', bg: '#FEE2E2' },
-  { color: '#1D4ED8', bg: '#DBEAFE' },
-  { color: '#7C3AED', bg: '#EDE9FE' },
-];
+const CAT_COLORS = colors.menuCategories.catColors;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MenuCategoriesScreen
@@ -75,7 +69,7 @@ export default function MenuCategoriesScreen({
   navigation: any;
   route: any;
 }) {
-   const nav          = useNavigation<any>();
+  const nav = useNavigation<any>();
   const { deptCode, deptName } = route.params as {
     deptCode: string;
     deptName: string;
@@ -114,7 +108,6 @@ export default function MenuCategoriesScreen({
       const result = await loadMenuCategories(deptCode, unitNo, docNo, mac);
       result.sort((a, b) => a.Id_No - b.Id_No);
       setCategories(result);
-      // Kick off background item indexing
       indexItems(result);
     } catch {
       setError('Failed to load categories.');
@@ -183,7 +176,7 @@ export default function MenuCategoriesScreen({
     });
 
     const sections: SearchSection[] = [];
-    if (matchedCats.length)  sections.push({ type: 'cat',  title: `Categories (${matchedCats.length})`, data: matchedCats });
+    if (matchedCats.length)  sections.push({ type: 'cat',  title: `Categories (${matchedCats.length})`, data: matchedCats  });
     if (matchedItems.length) sections.push({ type: 'item', title: `Items (${matchedItems.length})`,      data: matchedItems });
 
     setSearchSections(sections);
@@ -193,7 +186,7 @@ export default function MenuCategoriesScreen({
   // Renderers
   // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Normal category card ─────────────────────────────────────────────────
+  // ── Normal category card ──────────────────────────────────────────────────
   function renderCategory({ item, index }: { item: MenuCategoryResult; index: number }) {
     const { color, bg } = CAT_COLORS[index % CAT_COLORS.length];
     const icon = getCatIcon(item.Cat_Name);
@@ -204,8 +197,8 @@ export default function MenuCategoriesScreen({
         activeOpacity={0.82}
         onPress={() => navigation.navigate('MenuItems', {
           deptCode,
-          catCode:  item.Cat_Code,
-          catName:  item.Cat_Name,
+          catCode: item.Cat_Code,
+          catName: item.Cat_Name,
         })}
       >
         <View style={[S.cardAccent, { backgroundColor: color }]} />
@@ -222,7 +215,7 @@ export default function MenuCategoriesScreen({
     );
   }
 
-  // ── Search result row ────────────────────────────────────────────────────
+  // ── Search result row ─────────────────────────────────────────────────────
   function renderSearchRow({ item, section }: { item: any; section: SearchSection }) {
     const idx = section.data.indexOf(item);
     const { color, bg } = CAT_COLORS[idx % CAT_COLORS.length];
@@ -236,8 +229,8 @@ export default function MenuCategoriesScreen({
           activeOpacity={0.82}
           onPress={() => navigation.navigate('MenuItems', {
             deptCode,
-            catCode:  cat.Cat_Code,
-            catName:  cat.Cat_Name,
+            catCode: cat.Cat_Code,
+            catName: cat.Cat_Name,
           })}
         >
           <View style={[S.cardAccent, { backgroundColor: color }]} />
@@ -263,42 +256,39 @@ export default function MenuCategoriesScreen({
 
       return (
         <View style={[S.card, soldOut && S.cardSoldOut]}>
-          <View style={[S.cardAccent, { backgroundColor: soldOut ? '#D1D5DB' : color }]} />
+          <View style={[S.cardAccent, { backgroundColor: soldOut ? colors.menuCategories.soldOutAccent : color }]} />
 
-          {/* Thumbnail */}
           {hasImage ? (
             <Image source={{ uri: prod.ImagePath }} style={S.thumb} resizeMode="cover" />
           ) : (
             <View style={[S.thumb, S.thumbFallback]}>
-              <Ionicons name="restaurant-outline" size={20} color="#D1D5DB" />
+              <Ionicons name="restaurant-outline" size={20} color={colors.menuCategories.thumbFallbackIcon} />
             </View>
           )}
 
           <View style={S.cardInfo}>
             <Text style={S.cardName} numberOfLines={1}>{prod.Prod_Name}</Text>
-            {/* Breadcrumb: which category it belongs to */}
-            <Text style={S.cardSub} numberOfLines={1}>{prod.catName}</Text>
+            <Text style={S.cardSub}  numberOfLines={1}>{prod.catName}</Text>
 
-            {/* Badges */}
             <View style={S.badgeRow}>
               {prod.isBestSeller === 'T' && (
-                <View style={[S.badge, { backgroundColor: '#FEF3C7' }]}>
-                  <Text style={[S.badgeText, { color: '#92400E' }]}>★ Best Seller</Text>
+                <View style={[S.badge, { backgroundColor: colors.badge.bestSeller.bg }]}>
+                  <Text style={[S.badgeText, { color: colors.badge.bestSeller.text }]}>★ Best Seller</Text>
                 </View>
               )}
               {prod.Popular === 'T' && (
-                <View style={[S.badge, { backgroundColor: '#FEE2E2' }]}>
-                  <Text style={[S.badgeText, { color: '#B91C1C' }]}>🔥 Popular</Text>
+                <View style={[S.badge, { backgroundColor: colors.badge.popular.bg }]}>
+                  <Text style={[S.badgeText, { color: colors.badge.popular.text }]}>🔥 Popular</Text>
                 </View>
               )}
               {prod.isOffer === 'T' && (
-                <View style={[S.badge, { backgroundColor: '#CCFBF1' }]}>
-                  <Text style={[S.badgeText, { color: '#0F766E' }]}>🏷 Offer</Text>
+                <View style={[S.badge, { backgroundColor: colors.badge.offer.bg }]}>
+                  <Text style={[S.badgeText, { color: colors.badge.offer.text }]}>🏷 Offer</Text>
                 </View>
               )}
               {soldOut && (
-                <View style={[S.badge, { backgroundColor: '#F3F4F6' }]}>
-                  <Text style={[S.badgeText, { color: '#9CA3AF' }]}>Sold Out</Text>
+                <View style={[S.badge, { backgroundColor: colors.menuCategories.soldOutBadgeBg }]}>
+                  <Text style={[S.badgeText, { color: colors.menuCategories.soldOutBadgeText }]}>Sold Out</Text>
                 </View>
               )}
             </View>
@@ -315,36 +305,35 @@ export default function MenuCategoriesScreen({
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <View style={S.flex}>
-      <StatusBar barStyle="light-content" backgroundColor={PURPLE_DEEP} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.menuCategories.purpleDeep} />
 
       {/* ── Nav bar ── */}
       <View style={S.navBar}>
-        {/* <TouchableOpacity
-          style={S.navIconBtn}
-          onPress={() => navigation.goBack()}
+        {/* Hamburger */}
+        <TouchableOpacity
+          style={S.iconBtn}
+          onPress={() => nav.dispatch(DrawerActions.openDrawer())}
           activeOpacity={0.75}
         >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </TouchableOpacity> */}
+          <Ionicons name="menu-outline" size={22} color={colors.white} />
+        </TouchableOpacity>
 
- {/* Hamburger */}
-          <TouchableOpacity
-            style={S.iconBtn}
-            onPress={() => nav.dispatch(DrawerActions.openDrawer())}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="menu-outline" size={22} color="#fff" />
-          </TouchableOpacity>
         <View style={S.navTitleWrap}>
           <Text style={S.navTitle} numberOfLines={1}>{deptName}</Text>
           <Text style={S.navSub}>Kitchen Order Ticket</Text>
         </View>
+
+        {/* Doc chip — matches ExecutiveStaffScreen */}
         {device?.Doc_No ? (
           <View style={S.docChip}>
-            <Text style={S.docChipText}>#{device.Doc_No}</Text>
+            <View style={S.docChipIconRow}>
+              <Ionicons name="document-text-outline" size={10} color={colors.docChip.labelText} />
+              <Text style={S.docChipLabel}>Doc No</Text>
+            </View>
+            <Text style={S.docChipValue}>{device.Doc_No}</Text>
           </View>
         ) : (
-          <View style={{ width: 60 }} />
+          <View style={{ width: 72 }} />
         )}
       </View>
 
@@ -352,30 +341,28 @@ export default function MenuCategoriesScreen({
       {!loading && !error && (
         <View style={S.searchWrap}>
           <View style={S.searchBox}>
-            <Ionicons name="search-outline" size={17} color={TEXT_LIGHT} style={{ marginRight: 8 }} />
+            <Ionicons name="search-outline" size={17} color={colors.menuCategories.textLight} style={{ marginRight: 8 }} />
             <TextInput
               style={S.searchInput}
               value={query}
               onChangeText={setQuery}
               placeholder="Search categories or items…"
-              placeholderTextColor={TEXT_LIGHT}
+              placeholderTextColor={colors.menuCategories.textLight}
               returnKeyType="search"
               autoCapitalize="none"
             />
-            {/* Subtle spinner while background items are loading */}
             {indexing && !query && (
-              <ActivityIndicator size="small" color={TEXT_LIGHT} style={{ marginLeft: 4 }} />
+              <ActivityIndicator size="small" color={colors.menuCategories.textLight} style={{ marginLeft: 4 }} />
             )}
             {query.length > 0 && (
               <TouchableOpacity
                 onPress={() => setQuery('')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close-circle" size={18} color={TEXT_LIGHT} />
+                <Ionicons name="close-circle" size={18} color={colors.menuCategories.textLight} />
               </TouchableOpacity>
             )}
           </View>
-          {/* Hint shown only when user is already searching but items still loading */}
           {indexing && query.length > 0 && (
             <Text style={S.indexingHint}>Still loading items for full results…</Text>
           )}
@@ -385,25 +372,30 @@ export default function MenuCategoriesScreen({
       {/* ── Content ── */}
       {loading ? (
         <View style={S.centerWrap}>
-          <ActivityIndicator size="large" color={PURPLE} />
-          <Text style={S.loadingText}>Loading categories…</Text>
+                {/* <ActivityIndicator size="large" color={colors.menuCategories.purple} />
+                <Text style={S.loadingText}>Loading categories…</Text> */}
+                <LottieView
+                  source={require('../../assets/animations/Loading_Animation.json')}
+                  autoPlay
+                  loop
+                  style={{ width: 120, height: 120 }}
+                />
         </View>
 
       ) : error ? (
         <View style={S.centerWrap}>
           <View style={S.emptyIconWrap}>
-            <Ionicons name="cloud-offline-outline" size={32} color={TEXT_LIGHT} />
+            <Ionicons name="cloud-offline-outline" size={32} color={colors.menuCategories.textLight} />
           </View>
           <Text style={S.emptyTitle}>Could not load categories</Text>
           <Text style={S.emptySub}>{error}</Text>
         </View>
 
       ) : isSearching ? (
-        // ── Search results ──
         searchSections.length === 0 ? (
           <View style={S.centerWrap}>
             <View style={S.emptyIconWrap}>
-              <Ionicons name="search-outline" size={32} color={TEXT_LIGHT} />
+              <Ionicons name="search-outline" size={32} color={colors.menuCategories.textLight} />
             </View>
             <Text style={S.emptyTitle}>No results</Text>
             <Text style={S.emptySub}>Nothing matched "{query}"</Text>
@@ -430,14 +422,13 @@ export default function MenuCategoriesScreen({
       ) : categories.length === 0 ? (
         <View style={S.centerWrap}>
           <View style={S.emptyIconWrap}>
-            <Ionicons name="restaurant-outline" size={32} color={TEXT_LIGHT} />
+            <Ionicons name="restaurant-outline" size={32} color={colors.menuCategories.textLight} />
           </View>
           <Text style={S.emptyTitle}>No categories found</Text>
           <Text style={S.emptySub}>No categories available in {deptName}</Text>
         </View>
 
       ) : (
-        // ── Normal category list ──
         <FlatList
           data={categories}
           keyExtractor={item => item.Cat_Code}
@@ -451,89 +442,93 @@ export default function MenuCategoriesScreen({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tokens
-// ─────────────────────────────────────────────────────────────────────────────
-const PURPLE_DEEP = '#3B0F8C';
-const PURPLE      = '#6C1FC9';
-const WHITE       = '#FFFFFF';
-const BG          = '#F5F6FA';
-const CARD        = '#FFFFFF';
-const BORDER      = '#EDF0F4';
-const TEXT_DARK   = '#1A1D2E';
-const TEXT_MID    = '#6B7280';
-const TEXT_LIGHT  = '#B0B8C1';
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Styles
 // ─────────────────────────────────────────────────────────────────────────────
 const S = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: BG },
+  flex: { flex: 1, backgroundColor: colors.menuCategories.bg },
 
   // ── Nav bar ──
   navBar: {
-    backgroundColor: PURPLE_DEEP,
-    paddingTop: Platform.OS === 'ios' ? 52 : 32,
-    paddingBottom: 14,
+    backgroundColor:   colors.menuCategories.purpleDeep,
+    paddingTop:        Platform.OS === 'ios' ? 52 : 32,
+    paddingBottom:     14,
     paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               8,
   },
-  navIconBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
+  iconBtn: {
+    width:           36,
+    height:          36,
+    borderRadius:    10,
+    backgroundColor: colors.overlay.white15,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
   navTitleWrap: { flex: 1, alignItems: 'center' },
-  navTitle: { fontSize: 18, fontWeight: '800', color: WHITE, letterSpacing: 1 },
-  navSub:   { fontSize: 9, color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, marginTop: 1 },
+  navTitle: { fontSize: 18, fontWeight: '800', color: colors.white, letterSpacing: 1 },
+  navSub:   { fontSize: 9,  color: colors.overlay.muted65, letterSpacing: 1.5, marginTop: 1 },
+
+  // ── Doc chip — matches ExecutiveStaffScreen ───────────────────────────────
   docChip: {
-    backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)',
+    backgroundColor:   colors.docChip.bg,
+    borderRadius:      12,
+    paddingHorizontal: 10,
+    paddingVertical:    7,
+    alignItems:        'center',
+    minWidth:          72,
   },
-  docChipText: { fontSize: 11, color: WHITE, fontWeight: '600' },
+  docChipIconRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 },
+  docChipLabel: {
+    fontSize:      8,
+    color:         colors.docChip.labelText,
+    fontWeight:    '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  docChipValue: {
+    fontSize:      15,
+    color:         colors.docChip.valueText,
+    fontWeight:    '900',
+    letterSpacing: -0.3,
+  },
 
   // ── Search ──
   searchWrap: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2 },
   searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CARD,
-    borderRadius: 13,
-    borderWidth: 1.5,
-    borderColor: BORDER,
+    flexDirection:     'row',
+    alignItems:        'center',
+    backgroundColor:   colors.menuCategories.card,
+    borderRadius:      13,
+    borderWidth:       1.5,
+    borderColor:       colors.menuCategories.border,
     paddingHorizontal: 14,
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowColor:       colors.menuCategories.shadowCard,
+    shadowOffset:      { width: 0, height: 1 },
+    shadowOpacity:     0.06,
+    shadowRadius:      6,
+    elevation:         2,
   },
   searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: TEXT_DARK,
+    flex:            1,
+    fontSize:        14,
+    color:           colors.menuCategories.textDark,
     paddingVertical: 12,
   },
   indexingHint: {
-    fontSize: 11,
-    color: TEXT_LIGHT,
-    marginTop: 6,
+    fontSize:   11,
+    color:      colors.menuCategories.textLight,
+    marginTop:  6,
     marginLeft: 4,
-    fontStyle: 'italic',
+    fontStyle:  'italic',
   },
 
   // ── Section header ──
-  sectionHeader: {
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-    marginBottom: 2,
-  },
+  sectionHeader:     { paddingHorizontal: 4, paddingVertical: 8, marginBottom: 2 },
   sectionHeaderText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PURPLE,
+    fontSize:      12,
+    fontWeight:    '700',
+    color:         colors.menuCategories.purple,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
@@ -543,66 +538,78 @@ const S = StyleSheet.create({
 
   // ── Card ──
   card: {
-    backgroundColor: CARD,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: colors.menuCategories.card,
+    borderRadius:    16,
+    borderWidth:     1,
+    borderColor:     colors.menuCategories.border,
+    flexDirection:   'row',
+    alignItems:      'center',
+    overflow:        'hidden',
+    shadowColor:     colors.menuCategories.shadowCard,
+    shadowOffset:    { width: 0, height: 2 },
+    shadowOpacity:   0.07,
+    shadowRadius:    8,
+    elevation:       3,
   },
-  cardSoldOut: { opacity: 0.55 },
-  cardAccent: { width: 4, alignSelf: 'stretch' },
+  cardSoldOut:  { opacity: 0.55 },
+  cardAccent:   { width: 4, alignSelf: 'stretch' },
   cardIconWrap: {
-    width: 48, height: 48, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center',
-    marginLeft: 14, marginVertical: 14,
+    width:          48,
+    height:         48,
+    borderRadius:   13,
+    alignItems:     'center',
+    justifyContent: 'center',
+    marginLeft:     14,
+    marginVertical: 14,
   },
-  cardInfo: { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
-  cardName: { fontSize: 15, fontWeight: '700', color: TEXT_DARK, letterSpacing: -0.1 },
-  cardSub:  { fontSize: 11, color: TEXT_MID, marginTop: 3 },
+  cardInfo:  { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
+  cardName: {
+    fontSize:      15,
+    fontWeight:    '700',
+    color:         colors.menuCategories.textDark,
+    letterSpacing: -0.1,
+  },
+  cardSub:  { fontSize: 11, color: colors.menuCategories.textMid, marginTop: 3 },
   cardArrow: {
-    width: 28, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: 14,
+    width:          28,
+    height:         28,
+    borderRadius:   14,
+    alignItems:     'center',
+    justifyContent: 'center',
+    marginRight:    14,
   },
 
-  // ── Item thumbnail ──
+  // ── Thumbnail ──
   thumb: {
-    width: 52, height: 52, borderRadius: 10,
-    marginLeft: 12, marginVertical: 12,
+    width:          52,
+    height:         52,
+    borderRadius:   10,
+    marginLeft:     12,
+    marginVertical: 12,
   },
   thumbFallback: {
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.menuCategories.thumbFallbackBg,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
 
   // ── Badges ──
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
-  badge: {
-    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20,
-  },
+  badgeRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  badge:     { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20 },
   badgeText: { fontSize: 9, fontWeight: '700' },
 
   // ── Center states ──
-  centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { fontSize: 14, color: TEXT_MID, fontWeight: '500' },
+  centerWrap:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: colors.menuCategories.textMid, fontWeight: '500' },
   emptyIconWrap: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+    width:           64,
+    height:          64,
+    borderRadius:    32,
+    backgroundColor: colors.menuCategories.emptyIconBg,
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    4,
   },
-  emptyTitle: { fontSize: 15, fontWeight: '600', color: TEXT_MID },
-  emptySub:   { fontSize: 12, color: TEXT_LIGHT, textAlign: 'center' },
-  iconBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-
+  emptyTitle: { fontSize: 15, fontWeight: '600', color: colors.menuCategories.textMid },
+  emptySub:   { fontSize: 12, color: colors.menuCategories.textLight, textAlign: 'center' },
 });

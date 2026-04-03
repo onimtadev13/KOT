@@ -12,7 +12,6 @@ import {
   ScrollView,
   StatusBar,
   Easing,
-  Alert,
   Image,
 } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons';
@@ -21,6 +20,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { login as apiLogin } from '../Api/api';
 import { useAppStore } from '../Store/store';
 import { RootStackParamList } from '../Routes/Navigation';
+import MessageBox from '../Components/MessageBox';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -55,7 +55,7 @@ const logoS = StyleSheet.create({
     height: 18,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    backgroundColor: '#6C1FC9',
+    backgroundColor: '#C9A84C',
     opacity: 0.9,
   },
   plate: {
@@ -92,6 +92,7 @@ const logoS = StyleSheet.create({
 export default function LoginScreen({ navigation }: Props) {
   const setLoginData = useAppStore(state => state.setLoginData);
   const device       = useAppStore(state => state.device);
+  
 
   const unitLabel = device?.Device_Id ? `Unit ${device.Device_Id}` : 'Unit';
 
@@ -101,6 +102,17 @@ export default function LoginScreen({ navigation }: Props) {
   const [showPass,     setShowPass]     = useState(false);
   const [loading,      setLoading]      = useState(false);
   const [focused,      setFocused]      = useState(false);
+
+  const [msgBox, setMsgBox] = useState<{
+    visible: boolean;
+    variant: 'danger' | 'warning' | 'info';
+    title: string;
+    message: string;
+  }>({ visible: false, variant: 'info', title: '', message: '' });
+
+  function showMsg(variant: 'danger' | 'warning' | 'info', title: string, message: string) {
+    setMsgBox({ visible: true, variant, title, message });
+  }
 
   /* animated values */
   const inputRef = useRef<TextInput>(null);
@@ -185,20 +197,21 @@ export default function LoginScreen({ navigation }: Props) {
           break;
         }
         case 'wrong_password':
-          Alert.alert('Incorrect Passcode', result.message);
-          shake();
-          setPassword('');
-          break;
-        case 'device_not_found':
-          Alert.alert('Device Not Registered', result.message);
-          break;
+  showMsg('warning', 'Incorrect Passcode', result.message);
+  shake();
+  setPassword('');
+  break;
+       case 'device_not_found':
+  showMsg('warning', 'Device Not Registered', result.message);
+  break;
+
         case 'error':
-          Alert.alert('Connection Error', result.message);
-          break;
+  showMsg('warning', 'Connection Error', result.message);
+  break;
       }
     } catch (error: any) {
-      console.error('[LOGIN] Unexpected error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+        console.error('[LOGIN] Unexpected error:', error);
+  showMsg('warning', 'Error', 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -212,7 +225,7 @@ export default function LoginScreen({ navigation }: Props) {
       style={S.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#6C1FC9" />
+      <StatusBar barStyle="light-content" backgroundColor="#3D013C" />
 
       {/* ── Scrollable content — header + logo + card (NO button) ── */}
       <ScrollView
@@ -360,6 +373,21 @@ export default function LoginScreen({ navigation }: Props) {
         </TouchableOpacity>
       </Animated.View>
 
+
+<MessageBox
+        visible={msgBox.visible}
+        variant={msgBox.variant}
+        title={msgBox.title}
+        message={msgBox.message}
+        buttons={[
+          {
+            label: 'OK',
+            style: msgBox.variant === 'danger' ? 'destructive' : 'primary',
+            onPress: () => setMsgBox(p => ({ ...p, visible: false })),
+          },
+        ]}
+        onDismiss={() => setMsgBox(p => ({ ...p, visible: false }))}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -367,8 +395,8 @@ export default function LoginScreen({ navigation }: Props) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Tokens
 // ─────────────────────────────────────────────────────────────────────────────
-const PURPLE      = '#6C1FC9';
-const PURPLE_DARK = '#4A0FA0';
+const PURPLE      = '#3D013C';
+const PURPLE_DARK = '#1A1408';
 const PURPLE_SOFT = '#F3EEFF';
 const WHITE       = '#FFFFFF';
 const BG          = '#F5F6FA';

@@ -23,6 +23,8 @@ import {
   MenuItemResult,
 } from '../Api/api';
 import { DrawerActions, useNavigation, useFocusEffect } from '@react-navigation/native';
+import colors from '../themes/colors';
+import LottieView from 'lottie-react-native';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -55,39 +57,37 @@ function getDeptIcon(name: string): string {
 }
 
 const DEPT_COLORS = [
-  { color: '#6C1FC9', bg: '#F3EEFF' },
-  { color: '#0369A1', bg: '#E0F2FE' },
-  { color: '#0F766E', bg: '#CCFBF1' },
-  { color: '#B45309', bg: '#FEF3C7' },
-  { color: '#B91C1C', bg: '#FEE2E2' },
-  { color: '#1D4ED8', bg: '#DBEAFE' },
-  { color: '#7C3AED', bg: '#EDE9FE' },
+  { color: colors.menu.deptColors[0].color, bg: colors.menu.deptColors[0].bg },
+  { color: colors.menu.deptColors[1].color, bg: colors.menu.deptColors[1].bg },
+  { color: colors.menu.deptColors[2].color, bg: colors.menu.deptColors[2].bg },
+  { color: colors.menu.deptColors[3].color, bg: colors.menu.deptColors[3].bg },
+  { color: colors.menu.deptColors[4].color, bg: colors.menu.deptColors[4].bg },
+  { color: colors.menu.deptColors[5].color, bg: colors.menu.deptColors[5].bg },
+  { color: colors.menu.deptColors[6].color, bg: colors.menu.deptColors[6].bg },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MenuScreen
 // ─────────────────────────────────────────────────────────────────────────────
 export default function MenuScreen({ navigation }: { navigation: any }) {
-   const nav          = useNavigation<any>();
+  const nav    = useNavigation<any>();
   const device = useAppStore(state => state.device);
 
   // ── Store: department cache ───────────────────────────────────────────────
-  const storedDepts = useAppStore(state => state.departments);
+  const storedDepts   = useAppStore(state => state.departments);
   const setStoreDepts = useAppStore(state => state.setDepartments);
 
-  const [departments, setDepartments] =
-    useState<DepartmentResult[]>(storedDepts);
+  const [departments,   setDepartments]   = useState<DepartmentResult[]>(storedDepts);
   const [allCategories, setAllCategories] = useState<MenuCategoryResult[]>([]);
-  const [allItems, setAllItems] = useState<EnrichedItem[]>([]);
-  const [loading, setLoading] = useState(storedDepts.length === 0);
-  const [indexing, setIndexing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
+  const [allItems,      setAllItems]      = useState<EnrichedItem[]>([]);
+  const [loading,       setLoading]       = useState(storedDepts.length === 0);
+  const [indexing,      setIndexing]      = useState(false);
+  const [error,         setError]         = useState<string | null>(null);
+  const [query,         setQuery]         = useState('');
   const [searchSections, setSearchSections] = useState<SearchSection[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [isSearching,   setIsSearching]   = useState(false);
 
   useEffect(() => {
-    // If already cached in store, skip API call entirely
     if (storedDepts.length > 0) {
       setDepartments(storedDepts);
       setLoading(false);
@@ -101,13 +101,13 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
     setLoading(true);
     setError(null);
     try {
-      const unitNo = device?.Device_Id ?? 0;
-      const docNo = device?.Doc_No ?? '';
-      const uniqueId = device?.UniqueId ?? '';
-      const depts = await loadDepartments(unitNo, docNo, uniqueId);
+      const unitNo   = device?.Device_Id ?? 0;
+      const docNo    = device?.Doc_No    ?? '';
+      const uniqueId = device?.UniqueId  ?? '';
+      const depts    = await loadDepartments(unitNo, docNo, uniqueId);
       depts.sort((a, b) => a.Id_No - b.Id_No);
       setDepartments(depts);
-      setStoreDepts(depts); // ← save to store + AsyncStorage
+      setStoreDepts(depts);
       indexAllData(depts);
     } catch {
       setError('Failed to load departments.');
@@ -120,48 +120,35 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
     setIndexing(true);
     try {
       const unitNo = String(device?.Device_Id ?? '');
-      const docNo = device?.Doc_No ?? '';
-      const mac = device?.UniqueId ?? '';
+      const docNo  = device?.Doc_No  ?? '';
+      const mac    = device?.UniqueId ?? '';
       const cats: MenuCategoryResult[] = [];
-      const items: EnrichedItem[] = [];
+      const items: EnrichedItem[]      = [];
 
       await Promise.all(
         depts.map(async dept => {
           try {
-            const deptCats = await loadMenuCategories(
-              dept.Dept_Code,
-              unitNo,
-              docNo,
-              mac,
-            );
+            const deptCats = await loadMenuCategories(dept.Dept_Code, unitNo, docNo, mac);
             cats.push(...deptCats);
             await Promise.all(
               deptCats.map(async cat => {
                 try {
                   const catItems = await loadMenuItems(
-                    dept.Dept_Code,
-                    cat.Cat_Code,
-                    unitNo,
-                    docNo,
-                    mac,
+                    dept.Dept_Code, cat.Cat_Code, unitNo, docNo, mac,
                   );
                   items.push(
                     ...catItems.map(i => ({
                       ...i,
                       deptCode: dept.Dept_Code,
                       deptName: dept.Dept_Name,
-                      catCode: cat.Cat_Code,
-                      catName: cat.Cat_Name,
+                      catCode:  cat.Cat_Code,
+                      catName:  cat.Cat_Name,
                     })),
                   );
-                } catch {
-                  /* skip */
-                }
+                } catch { /* skip */ }
               }),
             );
-          } catch {
-            /* skip */
-          }
+          } catch { /* skip */ }
         }),
       );
 
@@ -198,33 +185,15 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
 
     const sections: SearchSection[] = [];
     if (matchedDepts.length)
-      sections.push({
-        type: 'dept',
-        title: `Departments (${matchedDepts.length})`,
-        data: matchedDepts,
-      });
+      sections.push({ type: 'dept', title: `Departments (${matchedDepts.length})`, data: matchedDepts });
     if (matchedCats.length)
-      sections.push({
-        type: 'cat',
-        title: `Categories (${matchedCats.length})`,
-        data: matchedCats,
-      });
+      sections.push({ type: 'cat',  title: `Categories (${matchedCats.length})`,  data: matchedCats  });
     if (matchedItems.length)
-      sections.push({
-        type: 'item',
-        title: `Items (${matchedItems.length})`,
-        data: matchedItems,
-      });
+      sections.push({ type: 'item', title: `Items (${matchedItems.length})`,       data: matchedItems });
     setSearchSections(sections);
   }, [query, departments, allCategories, allItems]);
 
-  function renderDept({
-    item,
-    index,
-  }: {
-    item: DepartmentResult;
-    index: number;
-  }) {
+  function renderDept({ item, index }: { item: DepartmentResult; index: number }) {
     const { color, bg } = DEPT_COLORS[index % DEPT_COLORS.length];
     const icon = getDeptIcon(item.Dept_Name);
     return (
@@ -252,13 +221,7 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
     );
   }
 
-  function renderSearchRow({
-    item,
-    section,
-  }: {
-    item: any;
-    section: SearchSection;
-  }) {
+  function renderSearchRow({ item, section }: { item: any; section: SearchSection }) {
     const idx = section.data.indexOf(item);
     const { color, bg } = DEPT_COLORS[idx % DEPT_COLORS.length];
 
@@ -277,11 +240,7 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
         >
           <View style={[S.cardAccent, { backgroundColor: color }]} />
           <View style={[S.cardIconWrap, { backgroundColor: bg }]}>
-            <Ionicons
-              name={getDeptIcon(dept.Dept_Name) as any}
-              size={22}
-              color={color}
-            />
+            <Ionicons name={getDeptIcon(dept.Dept_Name) as any} size={22} color={color} />
           </View>
           <View style={S.cardInfo}>
             <Text style={S.cardName}>{dept.Dept_Name}</Text>
@@ -304,8 +263,8 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
           onPress={() =>
             navigation.navigate('MenuItems', {
               deptCode: cat.Dept_Code,
-              catCode: cat.Cat_Code,
-              catName: cat.Cat_Name,
+              catCode:  cat.Cat_Code,
+              catName:  cat.Cat_Name,
             })
           }
         >
@@ -326,54 +285,35 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
 
     if (section.type === 'item') {
       const prod: EnrichedItem = item;
-      const soldOut = prod.isSoldOut === 'T';
+      const soldOut  = prod.isSoldOut === 'T';
       const hasImage = !!prod.ImagePath?.trim();
       return (
         <View style={[S.card, soldOut && { opacity: 0.55 }]}>
-          <View
-            style={[
-              S.cardAccent,
-              { backgroundColor: soldOut ? '#D1D5DB' : color },
-            ]}
-          />
+          <View style={[S.cardAccent, { backgroundColor: soldOut ? colors.menu.soldOutAccent : color }]} />
           {hasImage ? (
-            <Image
-              source={{ uri: prod.ImagePath }}
-              style={S.thumb}
-              resizeMode="cover"
-            />
+            <Image source={{ uri: prod.ImagePath }} style={S.thumb} resizeMode="cover" />
           ) : (
             <View style={[S.thumb, S.thumbFallback]}>
-              <Ionicons name="restaurant-outline" size={20} color="#D1D5DB" />
+              <Ionicons name="restaurant-outline" size={20} color={colors.menu.thumbFallbackIcon} />
             </View>
           )}
           <View style={S.cardInfo}>
-            <Text style={S.cardName} numberOfLines={1}>
-              {prod.Prod_Name}
-            </Text>
-            <Text style={S.cardSub} numberOfLines={1}>
-              {prod.deptName} › {prod.catName}
-            </Text>
+            <Text style={S.cardName} numberOfLines={1}>{prod.Prod_Name}</Text>
+            <Text style={S.cardSub}   numberOfLines={1}>{prod.deptName} › {prod.catName}</Text>
             <View style={S.badgeRow}>
               {prod.isBestSeller === 'T' && (
-                <View style={[S.badge, { backgroundColor: '#FEF3C7' }]}>
-                  <Text style={[S.badgeText, { color: '#92400E' }]}>
-                    ★ Best Seller
-                  </Text>
+                <View style={[S.badge, { backgroundColor: colors.badge.bestSeller.bg }]}>
+                  <Text style={[S.badgeText, { color: colors.badge.bestSeller.text }]}>★ Best Seller</Text>
                 </View>
               )}
               {prod.Popular === 'T' && (
-                <View style={[S.badge, { backgroundColor: '#FEE2E2' }]}>
-                  <Text style={[S.badgeText, { color: '#B91C1C' }]}>
-                    🔥 Popular
-                  </Text>
+                <View style={[S.badge, { backgroundColor: colors.badge.popular.bg }]}>
+                  <Text style={[S.badgeText, { color: colors.badge.popular.text }]}>🔥 Popular</Text>
                 </View>
               )}
               {soldOut && (
-                <View style={[S.badge, { backgroundColor: '#F3F4F6' }]}>
-                  <Text style={[S.badgeText, { color: '#9CA3AF' }]}>
-                    Sold Out
-                  </Text>
+                <View style={[S.badge, { backgroundColor: colors.menu.soldOutBadgeBg }]}>
+                  <Text style={[S.badgeText, { color: colors.menu.soldOutBadgeText }]}>Sold Out</Text>
                 </View>
               )}
             </View>
@@ -386,44 +326,46 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
 
   return (
     <View style={S.flex}>
-      <StatusBar barStyle="light-content" backgroundColor={PURPLE_DEEP} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.menu.purpleDeep} />
 
+      {/* ── Nav bar ── */}
       <View style={S.navBar}>
-        {/* <TouchableOpacity
-          style={S.navIconBtn}
-          onPress={() => navigation.goBack()}
+        {/* Hamburger */}
+        <TouchableOpacity
+          style={S.iconBtn}
+          onPress={() => nav.dispatch(DrawerActions.openDrawer())}
           activeOpacity={0.75}
         >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </TouchableOpacity> */}
-        {/* Hamburger */}
-          <TouchableOpacity
-            style={S.iconBtn}
-            onPress={() => nav.dispatch(DrawerActions.openDrawer())}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="menu-outline" size={22} color="#fff" />
-          </TouchableOpacity>
+          <Ionicons name="menu-outline" size={22} color={colors.white} />
+        </TouchableOpacity>
+
         <View style={S.navTitleWrap}>
           <Text style={S.navTitle}>Menu</Text>
           <Text style={S.navSub}>Kitchen Order Ticket</Text>
         </View>
+
+        {/* Doc chip — matches ExecutiveStaffScreen */}
         {device?.Doc_No ? (
           <View style={S.docChip}>
-            <Text style={S.docChipText}>#{device.Doc_No}</Text>
+            <View style={S.docChipIconRow}>
+              <Ionicons name="document-text-outline" size={10} color={colors.docChip.labelText} />
+              <Text style={S.docChipLabel}>Doc No</Text>
+            </View>
+            <Text style={S.docChipValue}>{device.Doc_No}</Text>
           </View>
         ) : (
-          <View style={{ width: 60 }} />
+          <View style={{ width: 72 }} />
         )}
       </View>
 
+      {/* ── Search bar ── */}
       {!loading && !error && (
         <View style={S.searchWrap}>
           <View style={S.searchBox}>
             <Ionicons
               name="search-outline"
               size={17}
-              color={TEXT_LIGHT}
+              color={colors.menu.textLight}
               style={{ marginRight: 8 }}
             />
             <TextInput
@@ -431,47 +373,44 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
               value={query}
               onChangeText={setQuery}
               placeholder="Search departments, categories, items…"
-              placeholderTextColor={TEXT_LIGHT}
+              placeholderTextColor={colors.menu.textLight}
               returnKeyType="search"
               autoCapitalize="none"
             />
             {indexing && !query && (
-              <ActivityIndicator
-                size="small"
-                color={TEXT_LIGHT}
-                style={{ marginLeft: 4 }}
-              />
+              <ActivityIndicator size="small" color={colors.menu.textLight} style={{ marginLeft: 4 }} />
             )}
             {query.length > 0 && (
               <TouchableOpacity
                 onPress={() => setQuery('')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close-circle" size={18} color={TEXT_LIGHT} />
+                <Ionicons name="close-circle" size={18} color={colors.menu.textLight} />
               </TouchableOpacity>
             )}
           </View>
           {indexing && query.length > 0 && (
-            <Text style={S.indexingHint}>
-              Still loading all items for full results…
-            </Text>
+            <Text style={S.indexingHint}>Still loading all items for full results…</Text>
           )}
         </View>
       )}
 
+      {/* ── States ── */}
       {loading ? (
         <View style={S.loadingWrap}>
-          <ActivityIndicator size="large" color={PURPLE} />
-          <Text style={S.loadingText}>Loading departments…</Text>
+              {/* <ActivityIndicator size="large" color={colors.menu.purple} />
+              <Text style={S.loadingText}>Loading departments…</Text> */}
+              <LottieView
+                source={require('../../assets/animations/Loading_Animation.json')}
+                autoPlay
+                loop
+                style={{ width: 120, height: 120 }}
+              />
         </View>
       ) : error ? (
         <View style={S.emptyWrap}>
           <View style={S.emptyIconWrap}>
-            <Ionicons
-              name="cloud-offline-outline"
-              size={32}
-              color={TEXT_LIGHT}
-            />
+            <Ionicons name="cloud-offline-outline" size={32} color={colors.menu.textLight} />
           </View>
           <Text style={S.emptyTitle}>Could not load</Text>
           <Text style={S.emptySub}>{error}</Text>
@@ -480,7 +419,7 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
         searchSections.length === 0 ? (
           <View style={S.emptyWrap}>
             <View style={S.emptyIconWrap}>
-              <Ionicons name="search-outline" size={32} color={TEXT_LIGHT} />
+              <Ionicons name="search-outline" size={32} color={colors.menu.textLight} />
             </View>
             <Text style={S.emptyTitle}>No results</Text>
             <Text style={S.emptySub}>Nothing matched "{query}"</Text>
@@ -506,7 +445,7 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
       ) : departments.length === 0 ? (
         <View style={S.emptyWrap}>
           <View style={S.emptyIconWrap}>
-            <Ionicons name="restaurant-outline" size={32} color={TEXT_LIGHT} />
+            <Ionicons name="restaurant-outline" size={32} color={colors.menu.textLight} />
           </View>
           <Text style={S.emptyTitle}>No departments found</Text>
           <Text style={S.emptySub}>Check your connection and try again</Text>
@@ -524,166 +463,170 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
   );
 }
 
-const PURPLE_DEEP = '#3B0F8C';
-const PURPLE = '#6C1FC9';
-const WHITE = '#FFFFFF';
-const BG = '#F5F6FA';
-const CARD = '#FFFFFF';
-const BORDER = '#EDF0F4';
-const TEXT_DARK = '#1A1D2E';
-const TEXT_MID = '#6B7280';
-const TEXT_LIGHT = '#B0B8C1';
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────────────────────
 const S = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: BG },
+  flex: { flex: 1, backgroundColor: colors.menu.bg },
+
+  // ── Nav bar ──
   navBar: {
-    backgroundColor: PURPLE_DEEP,
-    paddingTop: Platform.OS === 'ios' ? 52 : 32,
-    paddingBottom: 14,
+    backgroundColor:   colors.menu.purpleDeep,
+    paddingTop:        Platform.OS === 'ios' ? 52 : 32,
+    paddingBottom:     14,
     paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               8,
   },
-  navIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  iconBtn: {
+    width:           36,
+    height:          36,
+    borderRadius:    10,
+    backgroundColor: colors.overlay.white15,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
   navTitleWrap: { flex: 1, alignItems: 'center' },
-  navTitle: { fontSize: 18, fontWeight: '800', color: WHITE, letterSpacing: 1 },
-  navSub: {
-    fontSize: 9,
-    color: 'rgba(255,255,255,0.5)',
-    letterSpacing: 1.5,
-    marginTop: 1,
-  },
+  navTitle: { fontSize: 18, fontWeight: '800', color: colors.white, letterSpacing: 1 },
+  navSub:   { fontSize: 9,  color: colors.overlay.muted65, letterSpacing: 1.5, marginTop: 1 },
+
+  // ── Doc chip — matches ExecutiveStaffScreen ───────────────────────────────
   docChip: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius: 20,
+    backgroundColor:   colors.docChip.bg,
+    borderRadius:      12,
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
+    paddingVertical:    7,
+    alignItems:        'center',
+    minWidth:          72,
   },
-  docChipText: { fontSize: 11, color: WHITE, fontWeight: '600' },
+  docChipIconRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 },
+  docChipLabel: {
+    fontSize:      8,
+    color:         colors.docChip.labelText,
+    fontWeight:    '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  docChipValue: {
+    fontSize:      15,
+    color:         colors.docChip.valueText,
+    fontWeight:    '900',
+    letterSpacing: -0.3,
+  },
+
+  // ── Search ──
   searchWrap: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2 },
   searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CARD,
-    borderRadius: 13,
-    borderWidth: 1.5,
-    borderColor: BORDER,
+    flexDirection:     'row',
+    alignItems:        'center',
+    backgroundColor:   colors.menu.card,
+    borderRadius:      13,
+    borderWidth:       1.5,
+    borderColor:       colors.menu.border,
     paddingHorizontal: 14,
-    elevation: 2,
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
+    elevation:         2,
+    shadowColor:       colors.menu.shadowCard,
+    shadowOffset:      { width: 0, height: 1 },
+    shadowOpacity:     0.06,
+    shadowRadius:      6,
   },
-  searchInput: { flex: 1, fontSize: 14, color: TEXT_DARK, paddingVertical: 12 },
+  searchInput: { flex: 1, fontSize: 14, color: colors.menu.textDark, paddingVertical: 12 },
   indexingHint: {
-    fontSize: 11,
-    color: TEXT_LIGHT,
+    fontSize:  11,
+    color:     colors.menu.textLight,
     marginTop: 6,
     marginLeft: 4,
     fontStyle: 'italic',
   },
-  sectionHeader: { paddingHorizontal: 4, paddingVertical: 8, marginBottom: 2 },
+
+  // ── Section header ──
+  sectionHeader:     { paddingHorizontal: 4, paddingVertical: 8, marginBottom: 2 },
   sectionHeaderText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PURPLE,
+    fontSize:      12,
+    fontWeight:    '700',
+    color:         colors.menu.purple,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
+
+  // ── List ──
   list: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 32, gap: 10 },
+
+  // ── Card ──
   card: {
-    backgroundColor: CARD,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: colors.menu.card,
+    borderRadius:    16,
+    borderWidth:     1,
+    borderColor:     colors.menu.border,
+    flexDirection:   'row',
+    alignItems:      'center',
+    overflow:        'hidden',
+    shadowColor:     colors.menu.shadowCard,
+    shadowOffset:    { width: 0, height: 2 },
+    shadowOpacity:   0.07,
+    shadowRadius:    8,
+    elevation:       3,
   },
-  cardAccent: { width: 4, alignSelf: 'stretch' },
+  cardAccent:   { width: 4, alignSelf: 'stretch' },
   cardIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 13,
-    alignItems: 'center',
+    width:          48,
+    height:         48,
+    borderRadius:   13,
+    alignItems:     'center',
     justifyContent: 'center',
-    marginLeft: 14,
+    marginLeft:     14,
     marginVertical: 14,
   },
-  cardInfo: { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
+  cardInfo:  { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
   cardName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: TEXT_DARK,
+    fontSize:      15,
+    fontWeight:    '700',
+    color:         colors.menu.textDark,
     letterSpacing: -0.1,
   },
-  cardSub: { fontSize: 11, color: TEXT_MID, marginTop: 3 },
+  cardSub:  { fontSize: 11, color: colors.menu.textMid, marginTop: 3 },
   cardArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
+    width:          28,
+    height:         28,
+    borderRadius:   14,
+    alignItems:     'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight:    14,
   },
+
+  // ── Thumb ──
   thumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 10,
-    marginLeft: 12,
+    width:         52,
+    height:        52,
+    borderRadius:  10,
+    marginLeft:    12,
     marginVertical: 12,
   },
   thumbFallback: {
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.menu.thumbFallbackBg,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
+
+  // ── Badges ──
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
-  badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20 },
+  badge:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20 },
   badgeText: { fontSize: 9, fontWeight: '700' },
-  loadingWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  loadingText: { fontSize: 14, color: TEXT_MID, fontWeight: '500' },
-  emptyWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
+
+  // ── Loading / empty ──
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: colors.menu.textMid, fontWeight: '500' },
+  emptyWrap:   { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
   emptyIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
+    width:           64,
+    height:          64,
+    borderRadius:    32,
+    backgroundColor: colors.menu.emptyIconBg,
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    4,
   },
-  emptyTitle: { fontSize: 15, fontWeight: '600', color: TEXT_MID },
-  emptySub: { fontSize: 12, color: TEXT_LIGHT, textAlign: 'center' },
-  iconBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
+  emptyTitle: { fontSize: 15, fontWeight: '600', color: colors.menu.textMid },
+  emptySub:   { fontSize: 12, color: colors.menu.textLight, textAlign: 'center' },
 });

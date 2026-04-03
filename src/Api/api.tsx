@@ -1,4 +1,4 @@
-import { APIURL } from '../Data/data';
+import { APIURL, PRINT_URL } from '../Data/data';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -866,7 +866,7 @@ export async function submitOrder(params: {
       { Para_Data: String(params.currentDrop),      Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text14', Para_Type: 'VARCHAR' },
       { Para_Data: String(params.points),           Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text15', Para_Type: 'VARCHAR' },
       { Para_Data: String(params.avgBet),           Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text16', Para_Type: 'VARCHAR' },
-      { Para_Data: '',                              Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text17', Para_Type: 'VARCHAR' },
+      { Para_Data: '0',                              Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text17', Para_Type: 'VARCHAR' },
       { Para_Data: '',                              Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text18', Para_Type: 'VARCHAR' },
       { Para_Data: String(params.totalDrop),        Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text19', Para_Type: 'VARCHAR' },
       { Para_Data: params.butler ? 'T' : 'F',      Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text20', Para_Type: 'VARCHAR' },
@@ -878,5 +878,681 @@ export async function submitOrder(params: {
   } catch (error: any) {
     console.error('[SUBMIT ORDER] Error:', error);
     return { success: false, data: error?.message ?? 'Unknown error' };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Print KOT
+// ─────────────────────────────────────────────────────────────────────────────
+export interface PrintKotParams {
+  Loca:             string;
+  Oni_ApprovedBy:   string;
+  Oni_Customer:     string;
+  Oni_CustomerName: string;
+  Oni_Operator:     string;
+  Oni_PintNo:       string;
+  Oni_Room:         string;
+  Oni_Status:       string;
+  PrintBillReceipt: string;
+  Unit:             string;
+  con:              string;
+  strDulicateType:  number;
+  strT_Date:        string;
+  strT_Time:        string;
+}
+
+export interface PrintKotResult {
+  success:    boolean;
+  strRturnRes?: boolean;
+  raw?:        string;
+}
+
+export async function printKot(payload: PrintKotParams): Promise<PrintKotResult> {
+  try {
+    console.log('[PRINT] Payload:', JSON.stringify(payload, null, 2));
+
+    const response = await fetch(PRINT_URL, {
+      method: 'POST',
+      headers: {
+        'content-type':  'application/json',
+        'cache-control': 'no-cache',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    console.log('[PRINT] HTTP Status:', response.status);
+
+    const text = await response.text();
+    console.log('[PRINT] Raw response:', text);
+
+    try {
+      const json = JSON.parse(text);
+      console.log('[PRINT] Parsed response:', JSON.stringify(json, null, 2));
+      return { success: true, strRturnRes: json?.strRturnRes, raw: text };
+    } catch {
+      console.log('[PRINT] Response is not JSON:', text);
+      return { success: true, raw: text };
+    }
+
+  } catch (error: any) {
+    console.error('[PRINT] Error:', error?.message ?? error);
+    return { success: false };
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load Tables  (iid: 1515, con: 2)
+// ─────────────────────────────────────────────────────────────────────────────
+export interface TableResult {
+  TblCode: string;
+}
+
+export interface FloorResult {
+  Loca: string;
+}
+
+export interface LoadTablesResponse {
+  floors: FloorResult[];
+  tablesByFloor: TableResult[][];
+}
+
+export async function loadTables(): Promise<LoadTablesResponse> {
+  try {
+    console.log('[TABLES] Loading tables...');
+
+    const url  = APIURL;
+    const body = {
+      HasReturnData: 'T',
+      Parameters: [
+        {
+          Para_Data:      '1515',
+          Para_Direction: 'Input',
+          Para_Lenth:     10,
+          Para_Name:      '@Iid',
+          Para_Type:      'int',
+        },
+      ],
+      SpName: 'sp_Android_Common_API',
+      con:    '2',
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-cache' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+    const text = await response.text();
+    const data = JSON.parse(text);
+
+    const floors: FloorResult[]     = data?.CommonResult?.Table  ?? [];
+    const tablesByFloor: TableResult[][] = floors.map((_: any, i: number) => {
+      const key = i === 0 ? 'Table1' : `Table${i + 1}`;
+      return data?.CommonResult?.[key] ?? [];
+    });
+
+    console.log('[TABLES] Floors:', floors.map((f: FloorResult) => f.Loca));
+    tablesByFloor.forEach((tables, i) =>
+      console.log(`[TABLES] ${floors[i]?.Loca}: ${tables.length} tables`),
+    );
+
+    return { floors, tablesByFloor };
+
+  } catch (error: any) {
+    console.error('[TABLES] Error:', error);
+    return { floors: [], tablesByFloor: [] };
+  }
+}
+
+export async function searchGuests(
+  query: string,
+  mode:  'id' | 'name',
+): Promise<GuestSearchResult[]> {
+  try {
+    const url  = APIURL;
+    const body = {
+      HasReturnData: 'T',
+      Parameters: [
+        { Para_Data: '103',                          Para_Direction: 'Input', Para_Lenth: 10,  Para_Name: '@Iid',   Para_Type: 'int'     },
+        { Para_Data: query,                          Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1', Para_Type: 'VARCHAR' },
+        { Para_Data: '1',                            Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text2', Para_Type: 'VARCHAR' },
+        { Para_Data: '100',                          Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text3', Para_Type: 'VARCHAR' },
+        { Para_Data: mode === 'id' ? 'Id' : 'Name', Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text4', Para_Type: 'VARCHAR' },
+      ],
+      SpName: 'sp_Android_Common_API',
+      con:    '2',   // ← was '1' via callAPI
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-cache' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+    const text = await response.text();
+    console.log('[GUEST SEARCH] Raw response:', text);
+
+    const data = JSON.parse(text);
+    return data?.CommonResult?.Table ?? [];
+  } catch (error: any) {
+    console.error('[GUEST SEARCH] Error:', error);
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Submit KOT Check  (iid: 2930)
+// Call this BEFORE submitKot (iid: 1314)
+// text1 = Free | Paid
+// text2 = In House | Gate Pass
+// text3 = Unit (Device_Id)
+// text4 = DocNo
+// ─────────────────────────────────────────────────────────────────────────────
+export interface SubmitKotCheckResult {
+  success:     boolean;
+  approved:    boolean;   // true when strRturnRes === true
+  data?:       any;
+}
+
+export async function submitKotCheck(params: {
+  paymentType:  string;   // text1 — 'Free' | 'Paid'
+  deliveryType: string;   // text2 — 'In House' | 'Gate Pass'
+  deviceId:     number;   // text3 — Unit
+  docNo:        string;   // text4
+}): Promise<SubmitKotCheckResult> {
+  try {
+    console.log('[KOT CHECK] Submitting...', params);
+
+    const data = await callAPI('2930', [
+      { Para_Data: params.paymentType,      Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1', Para_Type: 'VARCHAR' }, // Free | Paid
+      { Para_Data: params.deliveryType,     Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text2', Para_Type: 'VARCHAR' }, // In House | Gate Pass
+      { Para_Data: String(params.deviceId), Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text3', Para_Type: 'VARCHAR' }, // Unit
+      { Para_Data: params.docNo,            Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text4', Para_Type: 'VARCHAR' }, // DocNo
+    ]);
+
+    console.log('[KOT CHECK] Response:', JSON.stringify(data, null, 2));
+
+    const approved = data?.strRturnRes === true;
+    return { success: true, approved, data };
+
+  } catch (error: any) {
+    console.error('[KOT CHECK] Error:', error);
+    return { success: false, approved: false, data: error?.message ?? 'Unknown error' };
+  }
+}
+
+// function formatKotNumber(val: string | number): string {
+//   const n = Number(val);
+//   if (isNaN(n)) return String(val); // pass through if not a number
+ 
+//   // Format with up to 2 decimal places, then strip trailing .00
+//   const formatted = n.toLocaleString('en-US', {
+//     minimumFractionDigits: 2,
+//     maximumFractionDigits: 2,
+//   });
+ 
+//   // Remove .00 suffix only — keep .40, .50, etc.
+//   return formatted.endsWith('.00') ? formatted.slice(0, -3) : formatted;
+// }
+ 
+
+ 
+// ─────────────────────────────────────────────────────────────────────────────
+// Submit KOT  (iid: 1314)
+// ─────────────────────────────────────────────────────────────────────────────
+export interface SubmitKotResult {
+  success:      boolean;
+  data?:        any;
+  strRturnRes?: boolean;
+}
+ 
+export async function submitKot(params: {
+  docNo:        string;
+  loginUser:    string;
+  mid:          string;
+  deviceId:     number;
+  tableName:    string;
+  mName:        string;
+  paymentType:  string;        // 'Free' | 'Paid'
+  currentDrop:  string | number;
+  points:       string | number;
+  avgBet:       string | number;
+  deliveryType: string;        // 'In House' | 'Gate Pass'
+  butler:       boolean;
+}): Promise<SubmitKotResult> {
+  try {
+    console.log('[SUBMIT KOT] Submitting...', params);
+ 
+    const data = await callAPI('1314', [
+      { Para_Data: params.docNo,                        Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1',  Para_Type: 'VARCHAR' }, // DocNo
+      { Para_Data: params.loginUser,                    Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text2',  Para_Type: 'VARCHAR' }, // LoginUser
+      { Para_Data: params.mid,                          Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text3',  Para_Type: 'VARCHAR' }, // MID
+      { Para_Data: String(params.deviceId),             Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text4',  Para_Type: 'VARCHAR' }, // Unit
+      { Para_Data: params.loginUser,                    Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text5',  Para_Type: 'VARCHAR' }, // LoginUser (repeated)
+      { Para_Data: params.tableName,                    Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text6',  Para_Type: 'VARCHAR' }, // Table Name
+      { Para_Data: 'DAY',                               Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text7',  Para_Type: 'VARCHAR' }, // "DAY"
+      { Para_Data: params.mName,                        Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text8',  Para_Type: 'VARCHAR' }, // MName
+      { Para_Data: 'XXXX',                              Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text9',  Para_Type: 'VARCHAR' }, // "XXXX"
+      { Para_Data: 'GP',                                Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text10', Para_Type: 'VARCHAR' }, // "GP"
+      { Para_Data: '',                                  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text11', Para_Type: 'VARCHAR' }, // ""
+      { Para_Data: '',                                  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text12', Para_Type: 'VARCHAR' }, // ""
+      { Para_Data: params.paymentType,                  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text13', Para_Type: 'VARCHAR' }, // Free | Paid
+      { Para_Data: params.currentDrop, Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text14', Para_Type: 'VARCHAR' }, // DropCurrent  e.g. "50,000"
+      { Para_Data: params.points,      Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text15', Para_Type: 'VARCHAR' }, // Points       e.g. "685"
+      { Para_Data: params.avgBet,      Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text16', Para_Type: 'VARCHAR' }, // AvgBet       e.g. "49,561.40"
+      { Para_Data: '0',                                 Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text17', Para_Type: 'VARCHAR' }, // "0"
+      { Para_Data: params.deliveryType,                 Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text18', Para_Type: 'VARCHAR' }, // In House | Gate Pass
+      { Para_Data: '',                                  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text19', Para_Type: 'VARCHAR' }, // ""
+      { Para_Data: params.butler ? 'T' : 'F',          Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text20', Para_Type: 'VARCHAR' }, // Butler T | F
+    ]);
+ 
+    console.log('[SUBMIT KOT] Response:', JSON.stringify(data, null, 2));
+    return { success: true, data, strRturnRes: data?.strRturnRes };
+ 
+  } catch (error: any) {
+    console.error('[SUBMIT KOT] Error:', error);
+    return { success: false, data: error?.message ?? 'Unknown error' };
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Submit KOT Item  (iid: 7)
+
+export interface SubmitKotItemResult {
+  success:      boolean;
+  strRturnRes?: boolean;
+  data?:        any;
+}
+export async function submitKotItem(params: {
+  prodCode:      string;
+  prodName:      string;
+  sellingPrice:  number;
+  purchasePrice: number;
+  docNo:         string;
+  unitNo:        number;
+  loginUser:     string;
+  qty:           number;
+  tableNo:       string;
+  kotId:         boolean;
+  botId:         boolean;
+}): Promise<SubmitKotItemResult> {
+  try {
+    console.log('[SUBMIT KOT ITEM] Submitting...', params);
+
+    const lineTotal = params.qty * params.sellingPrice;
+
+    const data = await callAPI('7', [
+      { Para_Data: params.prodCode,              Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1',  Para_Type: 'VARCHAR' }, // Prod_Code
+      { Para_Data: params.prodName,              Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text2',  Para_Type: 'VARCHAR' }, // Prod_Name
+      { Para_Data: String(params.sellingPrice),  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text3',  Para_Type: 'VARCHAR' }, // Selling_Price
+      { Para_Data: String(params.purchasePrice), Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text4',  Para_Type: 'VARCHAR' }, // Purchase_Price
+      { Para_Data: params.docNo,                 Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text5',  Para_Type: 'VARCHAR' }, // Doc_No
+      { Para_Data: '',                           Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text6',  Para_Type: 'VARCHAR' }, // ""
+      { Para_Data: '',                           Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text7',  Para_Type: 'VARCHAR' }, // ""
+      { Para_Data: String(params.unitNo),        Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text8',  Para_Type: 'VARCHAR' }, // Unit (Device_Id)
+      { Para_Data: params.loginUser,             Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text9',  Para_Type: 'VARCHAR' }, // LoginUser
+      { Para_Data: String(params.qty),           Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text10', Para_Type: 'VARCHAR' }, // Qty
+      { Para_Data: params.tableNo,               Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text11', Para_Type: 'VARCHAR' }, // Table_No
+      { Para_Data: String(params.kotId),         Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text12', Para_Type: 'VARCHAR' }, // KOT_Id → "true" / "false"
+      { Para_Data: String(params.botId),         Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text13', Para_Type: 'VARCHAR' }, // BOT_Id → "true" / "false"
+      { Para_Data: String(lineTotal),            Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text14', Para_Type: 'VARCHAR' }, // Qty * Selling_Price
+      { Para_Data: '001',                        Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text15', Para_Type: 'VARCHAR' }, // "001"
+    ]);
+
+    console.log('[SUBMIT KOT ITEM] Response:', JSON.stringify(data, null, 2));
+    return { success: true, data, strRturnRes: data?.strRturnRes };
+
+  } catch (error: any) {
+    console.error('[SUBMIT KOT ITEM] Error:', error);
+    return { success: false, data: error?.message ?? 'Unknown error' };
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load KOT Items  (iid: 8)
+//    Text1 = Unit No (Device_Id)
+//    Text2 = Doc No
+//    Text3 = Mac Address (UniqueId)
+// ─────────────────────────────────────────────────────────────────────────────
+export interface KotItemResult {
+  Prod_Code:     string;
+  Prod_Name:     string;
+  Selling_Price: number;
+  Qty:           number;
+  Amount:        number;
+  [key: string]: any;
+}
+
+export async function loadKotItems(
+  unitNo:   number,
+  docNo:    string,
+  mac:      string,
+): Promise<KotItemResult[]> {
+  try {
+    console.log('[KOT ITEMS] Loading — Unit:', unitNo, 'Doc:', docNo);
+
+    const data = await callAPI('8', [
+      { Para_Data: String(unitNo), Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1', Para_Type: 'VARCHAR' },
+      { Para_Data: docNo,          Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text2', Para_Type: 'VARCHAR' },
+      { Para_Data: mac,            Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text3', Para_Type: 'VARCHAR' },
+    ]);
+
+    console.log('[KOT ITEMS] Response:', JSON.stringify(data, null, 2));
+
+    const table: KotItemResult[] = data?.CommonResult?.Table ?? [];
+    console.log('[KOT ITEMS] Loaded:', table.length, 'items');
+    return table;
+
+  } catch (error: any) {
+    console.error('[KOT ITEMS] Error:', error);
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Delete KOT Item  (iid: 9)
+//    Text1 = Prod_Code
+//    Text2 = Unit (Device_Id)
+//    Text3 = Id_No
+//    Text4 = MacAddress (UniqueId)
+// ─────────────────────────────────────────────────────────────────────────────
+export interface DeleteKotItemResult {
+  success:      boolean;
+  strRturnRes?: boolean;
+  data?:        any;
+}
+
+export async function deleteKotItem(params: {
+  prodCode: string;
+  unitNo:   number;
+  docNo:    string;
+  idNo:     number;
+  mac:      string;
+}): Promise<DeleteKotItemResult & { refreshedItems: KotItemResult[] }> {
+  try {
+    console.log('[DELETE KOT ITEM] Deleting...', params);
+
+    // Send Id_No as float string — matches how the DB stores it (e.g. "798784.0")
+    const idNoStr = Number.isInteger(params.idNo)
+      ? `${params.idNo}.0`
+      : String(params.idNo);
+
+    // ── Step 1: Delete (iid 9, con 1, Id_No as float) ─────────────────────
+    const deleteData = await callAPI('9', [
+      { Para_Data: params.prodCode,       Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1', Para_Type: 'VARCHAR' },
+      { Para_Data: String(params.unitNo), Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text2', Para_Type: 'VARCHAR' },
+      { Para_Data: idNoStr,               Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text3', Para_Type: 'VARCHAR' },
+      { Para_Data: params.mac,            Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text4', Para_Type: 'VARCHAR' },
+    ]);
+
+    console.log('[DELETE KOT ITEM] Delete response:', JSON.stringify(deleteData, null, 2));
+
+    // ── Step 2: Reload items (iid 8, con 1) — source of truth ─────────────
+    const refreshData = await callAPI('8', [
+      { Para_Data: String(params.unitNo), Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1', Para_Type: 'VARCHAR' },
+      { Para_Data: params.docNo,          Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text2', Para_Type: 'VARCHAR' },
+      { Para_Data: params.mac,            Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text3', Para_Type: 'VARCHAR' },
+    ]);
+
+    console.log('[DELETE KOT ITEM] Refresh response:', JSON.stringify(refreshData, null, 2));
+
+    const refreshedItems: KotItemResult[] = refreshData?.CommonResult?.Table ?? [];
+
+    return {
+      success:        true,
+      strRturnRes:    deleteData?.strRturnRes,
+      data:           deleteData,
+      refreshedItems,
+    };
+
+  } catch (error: any) {
+    console.error('[DELETE KOT ITEM] Error:', error);
+    return { success: false, data: error?.message ?? 'Unknown error', refreshedItems: [] };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load Button Visibility  (iid: 47)
+//    Text1 = Unit No (Device_Id), Text2 = Doc No, Text3 = UniqueId
+//    Returns a map of button key → isActive
+//    Note: API returns "QR SCAN" (space) — normalised to "QR_SCAN" (underscore)
+// ─────────────────────────────────────────────────────────────────────────────
+export interface ButtonVisibilityResult {
+  Button_Name: string;
+  isActive:    boolean;
+}
+
+export async function loadButtonVisibility(
+  unitNo:   number,
+  docNo:    string,
+  uniqueId: string,
+): Promise<Record<string, boolean>> {
+  try {
+    console.log('[BUTTON VISIBILITY] Loading — Unit:', unitNo, 'Doc:', docNo);
+
+    const data = await callAPI('47', [
+      { Para_Data: String(unitNo), Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1', Para_Type: 'VARCHAR' },
+      { Para_Data: docNo,          Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text2', Para_Type: 'VARCHAR' },
+      { Para_Data: uniqueId,       Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text3', Para_Type: 'VARCHAR' },
+    ]);
+
+    console.log('[BUTTON VISIBILITY] Response:', JSON.stringify(data, null, 2));
+
+    const table: ButtonVisibilityResult[] = data?.CommonResult?.Table ?? [];
+
+    // Normalise key: replace spaces with underscores so "QR SCAN" → "QR_SCAN"
+    const map: Record<string, boolean> = {};
+    table.forEach(row => {
+      const key = row.Button_Name.replace(/\s+/g, '_');
+      map[key]  = row.isActive;
+    });
+
+    console.log('[BUTTON VISIBILITY] Parsed map:', map);
+    return map;
+
+  } catch (error: any) {
+    console.error('[BUTTON VISIBILITY] Error:', error);
+    return {};
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load Run Date  (iid: 2323, con: 2)
+//    IMPORTANT: must use raw fetch — callAPI always sends con: '1'
+// ─────────────────────────────────────────────────────────────────────────────
+export async function loadRunDate(): Promise<string | null> {
+  try {
+    console.log('[RUN DATE] Loading...');
+
+    const url  = APIURL;
+    const body = {
+      HasReturnData: 'T',
+      Parameters: [
+        {
+          Para_Data:      '2323',
+          Para_Direction: 'Input',
+          Para_Lenth:     10,
+          Para_Name:      '@Iid',
+          Para_Type:      'int',
+        },
+      ],
+      SpName: 'sp_Android_Common_API',
+      con:    '2',          // ← must stay '2' — do NOT use callAPI() here
+    };
+
+    const response = await fetch(url, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-cache' },
+      body:    JSON.stringify(body),
+    });
+
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+    const text = await response.text();
+    console.log('[RUN DATE] Raw response:', text);
+
+    const data  = JSON.parse(text);
+    const table = data?.CommonResult?.Table ?? [];
+    const row   = table[0] ?? null;
+    if (!row) return null;
+
+    const raw = String(
+      row.RunDate  ?? row.Run_Date ?? row.Rundate ??
+      row.run_date ?? Object.values(row)[0] ?? ''
+    );
+
+    if (!raw) return null;
+
+    // Strip time portion: "2026-04-02T00:00:00" → "2026-04-02"
+    const dateOnly = raw.split('T')[0];
+    console.log('[RUN DATE] Raw:', raw, '→ dateOnly:', dateOnly);
+    return dateOnly;
+
+  } catch (error: any) {
+    console.error('[RUN DATE] Error:', error);
+    return null;
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load Pit Past Orders  (iid: 2401, con: 1)
+//    Text1 = MID
+//    Text2 = dept code or "ALL"
+//    Text3 = RunDate (YYYY-MM-DD — stripped by loadRunDate)
+// ─────────────────────────────────────────────────────────────────────────────
+export interface PitPastOrderItem {
+  Receipt_No?:  string;
+  Prod_Code?:   string;
+  Prod_Name?:   string;
+  Dept_Name?:   string;
+  Qty?:         string | number;
+  Amount?:      string | number;
+  Tr_Date?:     string;
+  Steward?:     string;
+  [key: string]: any;
+}
+
+export async function loadPitPastOrders(
+  mid:     string,
+  dept:    string,
+  runDate: string,
+): Promise<PitPastOrderItem[]> {
+  try {
+    console.log('[PIT PAST ORDERS] MID:', mid, 'Dept:', dept, 'RunDate:', runDate);
+
+    const url  = APIURL;
+    const body = {
+      HasReturnData: 'T',
+      Parameters: [
+        { Para_Data: '2401',   Para_Direction: 'Input', Para_Lenth: 10,  Para_Name: '@Iid',   Para_Type: 'int'     },
+        { Para_Data: mid,      Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1',  Para_Type: 'VARCHAR' },
+        { Para_Data: dept,     Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text2',  Para_Type: 'VARCHAR' },
+        { Para_Data: runDate,  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text3',  Para_Type: 'VARCHAR' },
+      ],
+      SpName: 'sp_Android_Common_API',
+      con:    '1',
+    };
+
+    const response = await fetch(url, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-cache' },
+      body:    JSON.stringify(body),
+    });
+
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+    const text = await response.text();
+    console.log('[PIT PAST ORDERS] Raw response:', text);
+
+    const data  = JSON.parse(text);
+    const table: PitPastOrderItem[] = data?.CommonResult?.Table ?? [];
+    console.log('[PIT PAST ORDERS] Loaded:', table.length, 'records');
+
+    if (table.length > 0) {
+      console.log('[PIT PAST ORDERS] Fields:', Object.keys(table[0]));
+      console.log('[PIT PAST ORDERS] First row:', JSON.stringify(table[0]));
+    }
+
+    return table;
+
+  } catch (error: any) {
+    console.error('[PIT PAST ORDERS] Error:', error);
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load Pit Past Orders by Department  (iid: 1501, con: 1)
+//    Text1 = MID
+//    Text2 = DeptCode   (specific dept — NOT "ALL")
+//    Text3 = RunDate    (YYYY-MM-DD from iid 2323)
+// ─────────────────────────────────────────────────────────────────────────────
+export interface PitDeptOrderItem {
+  Receipt_No?:  string;
+  Prod_Code?:   string;
+  Prod_Name?:   string;
+  Dept_Name?:   string;
+  Qty?:         string | number;
+  Amount?:      string | number;
+  Tr_Date?:     string;
+  Steward?:     string;
+  [key: string]: any;
+}
+
+export async function loadPitDeptOrders(
+  mid:      string,
+  deptCode: string,
+  runDate:  string,
+): Promise<PitDeptOrderItem[]> {
+  try {
+    console.log('[PIT DEPT ORDERS] MID:', mid, 'Dept:', deptCode, 'RunDate:', runDate);
+
+    const url  = APIURL;
+    const body = {
+      HasReturnData: 'T',
+      Parameters: [
+        { Para_Data: '1501',    Para_Direction: 'Input', Para_Lenth: 10,  Para_Name: '@Iid',   Para_Type: 'int'     },
+        { Para_Data: mid,       Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1',  Para_Type: 'VARCHAR' },
+        { Para_Data: deptCode,  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text2',  Para_Type: 'VARCHAR' },
+        { Para_Data: runDate,   Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text3',  Para_Type: 'VARCHAR' },
+      ],
+      SpName: 'sp_Android_Common_API',
+      con:    '1',
+    };
+
+    const response = await fetch(url, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-cache' },
+      body:    JSON.stringify(body),
+    });
+
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+    const text = await response.text();
+    console.log('[PIT DEPT ORDERS] Raw response:', text);
+
+    const data  = JSON.parse(text);
+    const table: PitDeptOrderItem[] = data?.CommonResult?.Table ?? [];
+    console.log('[PIT DEPT ORDERS] Loaded:', table.length, 'records');
+
+    if (table.length > 0) {
+      console.log('[PIT DEPT ORDERS] Fields:', Object.keys(table[0]));
+      console.log('[PIT DEPT ORDERS] First row:', JSON.stringify(table[0]));
+    }
+
+    return table;
+
+  } catch (error: any) {
+    console.error('[PIT DEPT ORDERS] Error:', error);
+    return [];
   }
 }

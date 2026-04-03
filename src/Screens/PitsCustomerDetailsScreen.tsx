@@ -7,7 +7,6 @@ import {
   ScrollView,
   StatusBar,
   Platform,
-  ActivityIndicator,
   Image,
   Animated,
 } from 'react-native';
@@ -19,10 +18,17 @@ import {
   PitGuestDetailResult,
   PitDropDetailResult,
 } from '../Api/api';
-import { DrawerActions, useNavigation, useFocusEffect } from '@react-navigation/native';
+import { DrawerActions, useNavigation } from '@react-navigation/native';
+import colors from '../themes/colors';
+import LottieView from 'lottie-react-native';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Action buttons config
+// Shorthand alias
+// ─────────────────────────────────────────────────────────────────────────────
+const C = colors.pitCustomer;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Action buttons config — sourced from colors
 // ─────────────────────────────────────────────────────────────────────────────
 type ActionBtn = {
   key:   string;
@@ -32,15 +38,7 @@ type ActionBtn = {
   bg:    string;
 };
 
-const ACTION_BUTTONS: ActionBtn[] = [
-  { key: 'SUMMARY',      label: 'Summary',      icon: 'bar-chart-outline',     color: '#6C1FC9', bg: '#F3EEFF' },
-  { key: 'PAST_ORDERS',  label: 'Past Orders',  icon: 'time-outline',          color: '#0369A1', bg: '#E0F2FE' },
-  { key: 'TABLE',        label: 'Table',        icon: 'easel-outline',         color: '#0F766E', bg: '#CCFBF1' },
-  { key: 'SLOT',         label: 'Slot',         icon: 'grid-outline',          color: '#B45309', bg: '#FEF3C7' },
-  { key: 'POINTS',       label: 'Points',       icon: 'star-outline',          color: '#B91C1C', bg: '#FEE2E2' },
-  { key: 'DROP',         label: 'Drop',         icon: 'trending-down-outline', color: '#1D4ED8', bg: '#DBEAFE' },
-  { key: 'PAST_DETAILS', label: 'Past Details', icon: 'document-text-outline', color: '#7C3AED', bg: '#EDE9FE' },
-];
+const ACTION_BUTTONS: ActionBtn[] = colors.pitCustomer.actions;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Format number
@@ -49,7 +47,7 @@ function fmt(val: string | number | null | undefined): string {
   if (val === null || val === undefined || val === '') return '—';
   const n = Number(val);
   if (isNaN(n)) return String(val);
-  return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,7 +60,7 @@ export default function PitsCustomerDetailsScreen({
   navigation: any;
   route: any;
 }) {
-   const nav          = useNavigation<any>();
+  const nav = useNavigation<any>();
   const { MID, MName, tblCode } = route.params as {
     MID:     string;
     MName:   string;
@@ -70,8 +68,8 @@ export default function PitsCustomerDetailsScreen({
   };
 
   const device          = useAppStore(state => state.device);
-  const setOrderContext = useAppStore(state => state.setOrderContext);  // ← wired
-  const clearOrder      = useAppStore(state => state.clearOrder);       // ← reset on new customer
+  const setOrderContext = useAppStore(state => state.setOrderContext);
+  const clearOrder      = useAppStore(state => state.clearOrder);
   const mac             = device?.UniqueId ?? '';
 
   const [guest,   setGuest]   = useState<PitGuestDetailResult | null>(null);
@@ -94,7 +92,6 @@ export default function PitsCustomerDetailsScreen({
   }, [bounceAnim]);
 
   useEffect(() => {
-    // New customer → reset any previous order
     clearOrder();
     fetchAll();
   }, [MID]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -117,24 +114,43 @@ export default function PitsCustomerDetailsScreen({
   }
 
   function handleAction(key: string) {
-    console.log('[PIT CUSTOMER] Action:', key, 'MID:', MID);
+  console.log('[PIT CUSTOMER] Action:', key, 'MID:', MID);
+ 
+  switch (key) {
+    case 'PAST_ORDERS':
+      navigation.navigate('PitsPastOrders', {
+        MID,
+        MName: guest?.MName ?? MName,
+        tblCode,
+      });
+      break;
+ 
+    // Add more cases here as you build those screens:
+    // case 'SUMMARY':      navigation.navigate('PitsSummary',     { MID, MName, tblCode }); break;
+    // case 'TABLE':        navigation.navigate('PitsTable',       { MID, MName, tblCode }); break;
+    // case 'SLOT':         navigation.navigate('PitsSlot',        { MID, MName, tblCode }); break;
+    // case 'POINTS':       navigation.navigate('PitsPoints',      { MID, MName, tblCode }); break;
+    // case 'DROP':         navigation.navigate('PitsDrop',        { MID, MName, tblCode }); break;
+    // case 'PAST_DETAILS': navigation.navigate('PitsPastDetails', { MID, MName, tblCode }); break;
+ 
+    default:
+      break;
   }
+}
+ 
 
   // ── "Add Order" — set full context then go to Menu ────────────────────────
   function handlePlus() {
-    // Populate orderContext so CurrentOrderScreen can display everything
     setOrderContext({
       type:        'pits',
       memberId:    MID,
       memberName:  guest?.MName ?? MName,
       tableCode:   tblCode,
-      pitName:     tblCode,   // keep pitName in sync if used elsewhere
-      // Gaming stats — pulled straight from the drop API result
-      currentDrop: drop?.CurrentDrop   ?? null,
-      points:      drop?.Coupon        ?? null,
-      avgBet:      drop?.AvgBet        ?? null,
+      pitName:     tblCode,
+      currentDrop: drop?.CurrentDrop ?? null,
+      points:      drop?.Coupon      ?? null,
+      avgBet:      drop?.AvgBet      ?? null,
     });
-
     console.log('[PIT CUSTOMER] Order context set for MID:', MID);
     navigation.navigate('Menu');
   }
@@ -208,53 +224,59 @@ export default function PitsCustomerDetailsScreen({
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={S.flex}>
-      <StatusBar barStyle="light-content" backgroundColor={PURPLE_DEEP} />
+      <StatusBar barStyle="light-content" backgroundColor={C.purpleDeep} />
 
       {/* ── Nav bar ── */}
       <View style={S.navBar}>
-        {/* <TouchableOpacity
-          style={S.navIconBtn}
-          onPress={() => navigation.goBack()}
+        <TouchableOpacity
+          style={S.iconBtn}
+          onPress={() => nav.dispatch(DrawerActions.openDrawer())}
           activeOpacity={0.75}
         >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </TouchableOpacity> */}
-         {/* Hamburger */}
-          <TouchableOpacity
-            style={S.iconBtn}
-            onPress={() => nav.dispatch(DrawerActions.openDrawer())}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="menu-outline" size={22} color="#fff" />
-          </TouchableOpacity>
+          <Ionicons name="menu-outline" size={22} color={colors.white} />
+        </TouchableOpacity>
+
         <View style={S.navTitleWrap}>
           <Text style={S.navTitle} numberOfLines={1}>{tblCode}</Text>
           <Text style={S.navSub}>KITCHEN ORDER TICKET</Text>
         </View>
+
+        {/* ── Doc chip — matches ExecutiveStaffScreen ── */}
         {device?.Doc_No ? (
           <View style={S.docChip}>
-            <Text style={S.docChipText}>#{device.Doc_No}</Text>
+            <View style={S.docChipIconRow}>
+              <Ionicons name="document-text-outline" size={10} color={colors.docChip.labelText} />
+              <Text style={S.docChipLabel}>Doc No</Text>
+            </View>
+            <Text style={S.docChipValue}>{device.Doc_No}</Text>
           </View>
         ) : (
-          <View style={{ width: 60 }} />
+          <View style={{ width: 72 }} />
         )}
       </View>
 
       {/* ── Content ── */}
       {loading ? (
         <View style={S.centerWrap}>
-          <ActivityIndicator size="large" color={AMBER} />
-          <Text style={S.loadingText}>Loading customer details…</Text>
+          {/* <ActivityIndicator size="large" color={C.amber} />
+          <Text style={S.loadingText}>Loading customer details…</Text> */}
+          <LottieView
+            source={require('../../assets/animations/Loading_Animation.json')}
+            autoPlay
+            loop
+            style={{ width: 120, height: 120 }}
+          />
+
         </View>
       ) : error ? (
         <View style={S.centerWrap}>
           <View style={S.emptyIconWrap}>
-            <Ionicons name="cloud-offline-outline" size={32} color={TEXT_LIGHT} />
+            <Ionicons name="cloud-offline-outline" size={32} color={C.textLight} />
           </View>
           <Text style={S.emptyTitle}>Could not load details</Text>
           <Text style={S.emptySub}>{error}</Text>
           <TouchableOpacity style={S.retryBtn} onPress={fetchAll} activeOpacity={0.8}>
-            <Ionicons name="refresh-outline" size={15} color={WHITE} />
+            <Ionicons name="refresh-outline" size={15} color={colors.white} />
             <Text style={S.retryBtnText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -267,78 +289,68 @@ export default function PitsCustomerDetailsScreen({
           {/* ── Combined profile + stats card ── */}
           <View style={S.profileCard}>
 
-            {/* Purple header band */}
             <View style={S.profileBand} />
 
-            {/* ── Top section: avatar · name/id · table/rating ── */}
             <View style={S.profileTopRow}>
-
-              {/* Avatar */}
               <View style={S.avatarBorder}>
                 <Avatar />
               </View>
 
-              {/* Name + ID */}
               <View style={S.profileLeft}>
                 <Text style={S.profileName} numberOfLines={2}>{displayName}</Text>
                 <View style={S.memberIdChip}>
-                  <Ionicons name="card-outline" size={11} color={AMBER} />
+                  <Ionicons name="card-outline" size={11} color={C.amber} />
                   <Text style={S.memberIdText}>ID: {MID}</Text>
                 </View>
               </View>
 
-              {/* Table + Rating */}
               <View style={S.profileRight}>
                 <View style={S.tableBadge}>
-                  <Ionicons name="easel-outline" size={11} color={PURPLE_DEEP} />
+                  <Ionicons name="easel-outline" size={11} color={C.purpleDeep} />
                   <Text style={S.tableBadgeText}>{tblCode}</Text>
                 </View>
 
                 {!!rating && (
-                  <Animated.View
-                    style={[S.ratingBadge, { transform: [{ scale: bounceAnim }] }]}
-                  >
-                    <Ionicons name="star" size={11} color={WHITE} />
+                  <Animated.View style={[S.ratingBadge, { transform: [{ scale: bounceAnim }] }]}>
+                    <Ionicons name="star" size={11} color={colors.white} />
                     <Text style={S.ratingBadgeText}>{rating}</Text>
                   </Animated.View>
                 )}
               </View>
             </View>
 
-            {/* Divider */}
             <View style={S.cardInnerDivider} />
 
-            {/* Stats */}
             <View style={S.statsSection}>
               <StatRow
                 label="Current Drop (Table)"
                 value={fmt(drop?.CurrentDrop)}
                 icon="easel-outline"
-                color="#0369A1"
+                color={C.stat.currentDrop}
               />
               <StatRow
                 label="Current Drop (Slot)"
                 value={fmt(drop?.Current_Drop_Slot ?? null)}
                 icon="grid-outline"
-                color="#B45309"
+                color={C.stat.slotDrop}
               />
               <StatRow
                 label="Points"
                 value={fmt(drop?.Coupon)}
                 icon="pricetag-outline"
-                color="#B91C1C"
+                color={C.stat.points}
               />
               <StatRow
                 label="Avg Bet"
                 value={fmt(drop?.AvgBet)}
                 icon="trending-up-outline"
-                color="#0F766E"
+                color={C.stat.avgBet}
               />
               <StatRow
                 label="Actual Drop"
                 value={fmt(drop?.Actual_Drop)}
                 icon="arrow-down-circle-outline"
-                color="#1D4ED8"
+                color={C.stat.actualDrop}
                 isLast
               />
             </View>
@@ -352,10 +364,7 @@ export default function PitsCustomerDetailsScreen({
               const isOdd     = ACTION_BUTTONS.length % 2 !== 0;
               const fullWidth = isLast && isOdd;
               return (
-                <View
-                  key={btn.key}
-                  style={[S.actionBtnWrap, fullWidth && S.actionBtnWrapFull]}
-                >
+                <View key={btn.key} style={[S.actionBtnWrap, fullWidth && S.actionBtnWrapFull]}>
                   <ActionButton btn={btn} />
                 </View>
               );
@@ -363,13 +372,9 @@ export default function PitsCustomerDetailsScreen({
           </View>
 
           {/* ── Add Order button ── */}
-          <TouchableOpacity
-            style={S.addOrderBtn}
-            onPress={handlePlus}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity style={S.addOrderBtn} onPress={handlePlus} activeOpacity={0.85}>
             <View style={S.addOrderIconWrap}>
-              <Ionicons name="add" size={22} color={WHITE} />
+              <Ionicons name="add" size={22} color={colors.white} />
             </View>
             <Text style={S.addOrderLabel}>Add Order</Text>
           </TouchableOpacity>
@@ -381,216 +386,275 @@ export default function PitsCustomerDetailsScreen({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tokens
-// ─────────────────────────────────────────────────────────────────────────────
-const PURPLE_DEEP = '#3B0F8C';
-const PURPLE      = '#6C1FC9';
-const AMBER       = '#B45309';
-const WHITE       = '#FFFFFF';
-const BG          = '#F5F6FA';
-const CARD        = '#FFFFFF';
-const BORDER      = '#EDF0F4';
-const TEXT_DARK   = '#1A1D2E';
-const TEXT_MID    = '#6B7280';
-const TEXT_LIGHT  = '#B0B8C1';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
+// Styles — all colours from colors.pitCustomer (C) or colors.*
 // ─────────────────────────────────────────────────────────────────────────────
 const S = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: BG },
+  flex: { flex: 1, backgroundColor: C.bg },
 
-  // ── Nav bar ──
+  // ── Nav bar ────────────────────────────────────────────────────────────────
   navBar: {
-    backgroundColor: PURPLE_DEEP,
-    paddingTop: Platform.OS === 'ios' ? 52 : 32,
-    paddingBottom: 14,
+    backgroundColor:   C.purpleDeep,
+    paddingTop:        Platform.OS === 'ios' ? 52 : 32,
+    paddingBottom:     14,
     paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               8,
   },
-  navIconBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center', justifyContent: 'center',
+  iconBtn: {
+    width:           36,
+    height:          36,
+    borderRadius:    10,
+    backgroundColor: colors.overlay.white15,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
   navTitleWrap: { flex: 1, alignItems: 'center' },
-  navTitle: { fontSize: 18, fontWeight: '800', color: WHITE, letterSpacing: 1 },
-  navSub:   { fontSize: 9,  fontWeight: '600', color: 'rgba(255,255,255,0.55)', letterSpacing: 1.5, marginTop: 1 },
-  docChip: {
-    backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)',
-  },
-  docChipText: { fontSize: 11, color: WHITE, fontWeight: '600' },
+  navTitle: { fontSize: 18, fontWeight: '800', color: colors.white, letterSpacing: 1 },
+  navSub:   { fontSize: 9,  fontWeight: '600', color: colors.overlay.muted65, letterSpacing: 1.5, marginTop: 1 },
 
-  // ── Scroll ──
-  scroll: { flex: 1 },
+  // ── Doc chip — matches ExecutiveStaffScreen ────────────────────────────────
+  docChip: {
+    backgroundColor:   colors.docChip.bg,
+    borderRadius:      12,
+    paddingHorizontal: 10,
+    paddingVertical:    7,
+    alignItems:        'center',
+    minWidth:          72,
+  },
+  docChipIconRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 },
+  docChipLabel: {
+    fontSize:      8,
+    color:         colors.docChip.labelText,
+    fontWeight:    '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  docChipValue: {
+    fontSize:      15,
+    color:         colors.docChip.valueText,
+    fontWeight:    '900',
+    letterSpacing: -0.3,
+  },
+
+  // ── Scroll ─────────────────────────────────────────────────────────────────
+  scroll:        { flex: 1 },
   scrollContent: { paddingBottom: 36 },
 
-  // ── Combined profile + stats card ──
+  // ── Profile card ───────────────────────────────────────────────────────────
   profileCard: {
-    backgroundColor: CARD,
-    marginHorizontal: 14, marginTop: 14,
-    borderRadius: 20,
-    borderWidth: 1, borderColor: BORDER,
-    overflow: 'hidden',
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08, shadowRadius: 10, elevation: 4,
+    backgroundColor:  C.card,
+    marginHorizontal: 14,
+    marginTop:        14,
+    borderRadius:     20,
+    borderWidth:      1,
+    borderColor:      C.border,
+    overflow:         'hidden',
+    shadowColor:      colors.shadow.card,
+    shadowOffset:     { width: 0, height: 2 },
+    shadowOpacity:    0.08,
+    shadowRadius:     10,
+    elevation:        4,
   },
   profileBand: {
-    width: '100%', height: 56,
-    backgroundColor: PURPLE_DEEP,
+    width:           '100%',
+    height:          56,
+    backgroundColor: C.purpleDeep,
   },
   profileTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection:     'row',
+    alignItems:        'flex-start',
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    marginTop: -28,
-    gap: 12,
+    paddingBottom:     16,
+    marginTop:         -28,
+    gap:               12,
   },
   avatarBorder: {
-    width: 72, height: 72, borderRadius: 36,
-    borderWidth: 3, borderColor: WHITE,
-    overflow: 'hidden', flexShrink: 0,
-    shadowColor: PURPLE_DEEP,
+    width:        72,
+    height:       72,
+    borderRadius: 36,
+    borderWidth:  3,
+    borderColor:  colors.white,
+    overflow:     'hidden',
+    flexShrink:   0,
+    shadowColor:  C.purpleDeep,
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22, shadowRadius: 6, elevation: 5,
+    shadowOpacity:0.22,
+    shadowRadius: 6,
+    elevation:    5,
   },
   avatarImg:      { width: '100%', height: '100%' },
-  avatarFallback: { backgroundColor: AMBER, alignItems: 'center', justifyContent: 'center' },
-  avatarInitial:  { fontSize: 28, fontWeight: '900', color: WHITE },
+  avatarFallback: { backgroundColor: C.amber, alignItems: 'center', justifyContent: 'center' },
+  avatarInitial:  { fontSize: 28, fontWeight: '900', color: colors.white },
 
   profileLeft: { flex: 1, marginTop: 30 },
   profileName: {
-    fontSize: 15, fontWeight: '800',
-    color: TEXT_DARK, lineHeight: 20,
-    marginBottom: 6, letterSpacing: 0.1,
+    fontSize:     15,
+    fontWeight:   '800',
+    color:        C.textDark,
+    lineHeight:   20,
+    marginBottom: 6,
+    letterSpacing:0.1,
   },
   memberIdChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#FEF3C7',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 20, borderWidth: 1, borderColor: '#FDE68A',
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               4,
+    backgroundColor:   C.memberIdBg,
+    alignSelf:         'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical:   3,
+    borderRadius:      20,
+    borderWidth:       1,
+    borderColor:       C.memberIdBorder,
   },
-  memberIdText: { fontSize: 11, fontWeight: '700', color: AMBER },
+  memberIdText: { fontSize: 11, fontWeight: '700', color: C.memberIdText },
 
   profileRight: { alignItems: 'flex-end', gap: 8, marginTop: 30, paddingVertical: 10 },
   tableBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#EDE9FE',
-    paddingHorizontal: 8, paddingVertical: 4,
-    borderRadius: 20, borderWidth: 1, borderColor: '#DDD6FE',
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               4,
+    backgroundColor:   C.tableBadgeBg,
+    paddingHorizontal: 8,
+    paddingVertical:   4,
+    borderRadius:      20,
+    borderWidth:       1,
+    borderColor:       C.tableBadgeBorder,
   },
-  tableBadgeText: { fontSize: 11, fontWeight: '700', color: PURPLE_DEEP },
+  tableBadgeText: { fontSize: 11, fontWeight: '700', color: C.tableBadgeText },
   ratingBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#DC2626',
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 20,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 4,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               4,
+    backgroundColor:   C.ratingBg,
+    paddingHorizontal: 10,
+    paddingVertical:   5,
+    borderRadius:      20,
+    shadowColor:       C.ratingShadow,
+    shadowOffset:      { width: 0, height: 2 },
+    shadowOpacity:     0.4,
+    shadowRadius:      6,
+    elevation:         4,
   },
-  ratingBadgeText: { fontSize: 11, fontWeight: '900', color: WHITE, letterSpacing: 0.5 },
+  ratingBadgeText: { fontSize: 11, fontWeight: '900', color: colors.white, letterSpacing: 0.5 },
 
-  cardInnerDivider: {
-    height: 1, backgroundColor: BORDER, marginHorizontal: 16, marginBottom: 4,
-  },
+  cardInnerDivider: { height: 1, backgroundColor: C.border, marginHorizontal: 16, marginBottom: 4 },
 
   statsSection: { paddingBottom: 4 },
   statRow: {
-    flexDirection: 'row', alignItems: 'center',
+    flexDirection:  'row',
+    alignItems:     'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical:   12,
   },
-  statRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  statRowIcon: {
-    width: 28, height: 28, borderRadius: 7,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  statRowLabel: { fontSize: 13, fontWeight: '500', color: TEXT_DARK },
-  statRowValue: { fontSize: 14, fontWeight: '800', letterSpacing: -0.3 },
-  statDivider:  { height: 1, backgroundColor: BORDER, marginLeft: 54 },
+  statRowLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  statRowIcon:  { width: 28, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  statRowLabel: { fontSize: 15, fontWeight: '800', color: C.textDark },
+  statRowValue: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+  statDivider:  { height: 1, backgroundColor: C.border, marginLeft: 54 },
 
-  // ── Section title ──
+  // ── Section title ──────────────────────────────────────────────────────────
   sectionTitle: {
-    fontSize: 11, fontWeight: '700', color: TEXT_MID,
-    letterSpacing: 1.5, textTransform: 'uppercase',
-    marginTop: 20, marginBottom: 10, marginHorizontal: 18,
+    fontSize:        11,
+    fontWeight:      '700',
+    color:           C.textMid,
+    letterSpacing:   1.5,
+    textTransform:   'uppercase',
+    marginTop:       20,
+    marginBottom:    10,
+    marginHorizontal:18,
   },
 
-  // ── Actions grid ──
-  actionsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    marginHorizontal: 14, gap: 10,
-  },
+  // ── Actions grid ───────────────────────────────────────────────────────────
+  actionsGrid:       { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 14, gap: 10 },
   actionBtnWrap:     { width: '47%' },
   actionBtnWrapFull: { width: '100%' },
   actionBtn: {
-    backgroundColor: CARD,
-    borderRadius: 14,
-    borderWidth: 1, borderColor: BORDER,
-    padding: 14,
-    alignItems: 'flex-start',
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
-    position: 'relative',
+    backgroundColor: C.card,
+    borderRadius:    14,
+    borderWidth:     1,
+    borderColor:     C.border,
+    padding:         14,
+    alignItems:      'flex-start',
+    shadowColor:     colors.shadow.card,
+    shadowOffset:    { width: 0, height: 1 },
+    shadowOpacity:   0.07,
+    shadowRadius:    6,
+    elevation:       2,
+    position:        'relative',
   },
   actionIconWrap: {
-    width: 46, height: 46, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 10,
+    width:         46,
+    height:        46,
+    borderRadius:  13,
+    alignItems:    'center',
+    justifyContent:'center',
+    marginBottom:  10,
   },
-  actionLabel: { fontSize: 13, fontWeight: '700', color: TEXT_DARK, letterSpacing: -0.1 },
+  actionLabel: { fontSize: 15, fontWeight: '700', color: C.textDark, letterSpacing: -0.1 },
   actionArrow: {
-    position: 'absolute', top: 10, right: 10,
-    width: 22, height: 22, borderRadius: 11,
-    alignItems: 'center', justifyContent: 'center',
+    position:      'absolute',
+    top:           10,
+    right:         10,
+    width:         22,
+    height:        22,
+    borderRadius:  11,
+    alignItems:    'center',
+    justifyContent:'center',
   },
 
-  // ── Add Order button ──
+  // ── Add Order button ───────────────────────────────────────────────────────
   addOrderBtn: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 10,
-    backgroundColor: PURPLE_DEEP,
-    marginHorizontal: 14, marginTop: 20,
-    borderRadius: 16, paddingVertical: 16,
-    shadowColor: PURPLE_DEEP,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35, shadowRadius: 10, elevation: 6,
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'center',
+    gap:               10,
+    backgroundColor:   C.purpleDeep,
+    marginHorizontal:  14,
+    marginTop:         20,
+    borderRadius:      16,
+    paddingVertical:   16,
+    shadowColor:       C.purpleDeep,
+    shadowOffset:      { width: 0, height: 4 },
+    shadowOpacity:     0.35,
+    shadowRadius:      10,
+    elevation:         6,
   },
   addOrderIconWrap: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', justifyContent: 'center',
+    width:           32,
+    height:          32,
+    borderRadius:    16,
+    backgroundColor: colors.overlay.white20,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
-  addOrderLabel: { fontSize: 16, fontWeight: '800', color: WHITE, letterSpacing: 0.5 },
+  addOrderLabel: { fontSize: 16, fontWeight: '800', color: colors.white, letterSpacing: 0.5 },
 
-  // ── Center states ──
-  centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { fontSize: 14, color: TEXT_MID, fontWeight: '500' },
-  emptyIconWrap: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  // ── Centre states ──────────────────────────────────────────────────────────
+  centerWrap:   { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText:  { fontSize: 14, color: C.textMid, fontWeight: '500' },
+  emptyIconWrap:{
+    width:           64,
+    height:          64,
+    borderRadius:    32,
+    backgroundColor: C.bg,
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    4,
   },
-  emptyTitle: { fontSize: 15, fontWeight: '600', color: TEXT_MID },
-  emptySub:   { fontSize: 12, color: TEXT_LIGHT, textAlign: 'center' },
+  emptyTitle:   { fontSize: 15, fontWeight: '600', color: C.textMid },
+  emptySub:     { fontSize: 12, color: C.textLight, textAlign: 'center' },
   retryBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: PURPLE_DEEP,
-    paddingHorizontal: 20, paddingVertical: 10,
-    borderRadius: 20, marginTop: 4,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               6,
+    backgroundColor:   C.purpleDeep,
+    paddingHorizontal: 20,
+    paddingVertical:   10,
+    borderRadius:      20,
+    marginTop:         4,
   },
-  retryBtnText: { fontSize: 13, fontWeight: '700', color: WHITE },
-  iconBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-
+  retryBtnText: { fontSize: 13, fontWeight: '700', color: colors.white },
 });

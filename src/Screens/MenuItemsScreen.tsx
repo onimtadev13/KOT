@@ -7,16 +7,18 @@ import {
   FlatList,
   StatusBar,
   Platform,
-  ActivityIndicator,
   TextInput,
   Image,
-  Modal,
 } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useAppStore } from '../Store/store';
-import { loadMenuItems, MenuItemResult } from '../Api/api';
-import { DrawerActions, useNavigation, useFocusEffect } from '@react-navigation/native';
+import { loadMenuItems, MenuItemResult, submitKotItem } from '../Api/api';
+import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useAppBack } from '../Hooks/useAppBack';
+import colors from '../themes/colors';
+import AddToOrderModal from '../Components/AddToOrderModal';
+import LottieView from 'lottie-react-native';
+import MessageBox from '../Components/MessageBox';
 
 export default function MenuItemsScreen({
   navigation,
@@ -25,29 +27,40 @@ export default function MenuItemsScreen({
   navigation: any;
   route: any;
 }) {
-   const nav          = useNavigation<any>();
+  const nav = useNavigation<any>();
   const { deptCode, catCode, catName } = route.params as {
     deptCode: string;
-    catCode: string;
-    catName: string;
+    catCode:  string;
+    catName:  string;
   };
 
   useAppBack();
 
-  const device = useAppStore(state => state.device);
-
-  // ── Store: order context + addOrderItem ───────────────────────────────────
+  const device       = useAppStore(state => state.device);
+  const session      = useAppStore(state => state.session);
   const orderContext = useAppStore(state => state.orderContext);
   const addOrderItem = useAppStore(state => state.addOrderItem);
 
-  const [allProducts, setAllProducts] = useState<MenuItemResult[]>([]);
-  const [filtered, setFiltered] = useState<MenuItemResult[]>([]);
-  const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedItem, setSelectedItem] = useState<MenuItemResult | null>(null);
+  const [allProducts,     setAllProducts]     = useState<MenuItemResult[]>([]);
+  const [filtered,        setFiltered]        = useState<MenuItemResult[]>([]);
+  const [query,           setQuery]           = useState('');
+  const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState<string | null>(null);
+  const [selectedItem,    setSelectedItem]    = useState<MenuItemResult | null>(null);
   const [qtyModalVisible, setQtyModalVisible] = useState(false);
-  const [qty, setQty] = useState('1');
+  const [qty,             setQty]             = useState('1');
+  const [orderSending,    setOrderSending]    = useState(false);
+
+  const [msgBox, setMsgBox] = useState<{
+  visible: boolean;
+  variant: 'danger' | 'warning' | 'info';
+  title: string;
+  message: string;
+}>({ visible: false, variant: 'info', title: '', message: '' });
+
+function showMsg(variant: 'danger' | 'warning' | 'info', title: string, message: string) {
+  setMsgBox({ visible: true, variant, title, message });
+}
 
   useEffect(() => {
     fetchProducts();
@@ -59,8 +72,8 @@ export default function MenuItemsScreen({
     setQuery('');
     try {
       const unitNo = String(device?.Device_Id ?? '');
-      const docNo = device?.Doc_No ?? '';
-      const mac = device?.UniqueId ?? '';
+      const docNo  = device?.Doc_No  ?? '';
+      const mac    = device?.UniqueId ?? '';
       const result = await loadMenuItems(deptCode, catCode, unitNo, docNo, mac);
       setAllProducts(result);
       setFiltered(result);
@@ -86,42 +99,83 @@ export default function MenuItemsScreen({
     setFiltered(allProducts);
   }
 
-  // ── Add item to store order ────────────────────────────────────────────────
+  // ── Add to local store only (no API call) ─────────────────────────────────
   function handleAdd() {
     if (!selectedItem) return;
     const quantity = Math.max(1, parseInt(qty) || 1);
-
     addOrderItem({
-      Prod_Code: selectedItem.Prod_Code,
-      Prod_Name: selectedItem.Prod_Name,
-      Dept_Code: deptCode,
-      Dept_Name: '',
-      Cat_Code: catCode,
-      Cat_Name: catName,
+      Prod_Code:     selectedItem.Prod_Code,
+      Prod_Name:     selectedItem.Prod_Name,
+      Dept_Code:     deptCode,
+      Dept_Name:     '',
+      Cat_Code:      catCode,
+      Cat_Name:      catName,
       Selling_Price: selectedItem.Selling_Price ?? 0,
-      Qty: quantity,
-      // Attach order context — who is ordering
-      GuestID: orderContext.guestId,
-      GuestName: orderContext.guestName,
-      PitName: orderContext.pitName,
-      TableCode: orderContext.tableCode,
-      StaffCode: orderContext.staffCode,
-      StaffName: orderContext.staffName,
+      Qty:           quantity,
+      GuestID:       orderContext.guestId,
+      GuestName:     orderContext.guestName,
+      PitName:       orderContext.pitName,
+      TableCode:     orderContext.tableCode,
+      StaffCode:     orderContext.staffCode,
+      StaffName:     orderContext.staffName,
     });
-
-    console.log(
-      '[MENU ITEMS] Added to order:',
-      selectedItem.Prod_Name,
-      'x',
-      quantity,
-    );
+    console.log('[MENU ITEMS] Added to order:', selectedItem.Prod_Name, 'x', quantity);
     setQtyModalVisible(false);
   }
 
-  // ── Order immediately (add + navigate to CurrentOrder) ────────────────────
-  function handleOrder() {
-    handleAdd();
-    navigation.navigate('CurrentOrder');
+  // ── Order — calls iid 7, adds to store, navigates ─────────────────────────
+  async function handleOrder() {
+    if (!selectedItem) return;
+    if (orderSending) return;
+
+    const quantity = Math.max(1, parseInt(qty) || 1);
+
+    setOrderSending(true);
+    try {
+      const result = await submitKotItem({
+        prodCode:      selectedItem.Prod_Code,
+        prodName:      selectedItem.Prod_Name,
+        sellingPrice:  selectedItem.Selling_Price  ?? 0,
+        purchasePrice: selectedItem.Purchase_Price ?? 0,
+        docNo:         device?.Doc_No    ?? '',
+        unitNo:        device?.Device_Id ?? 0,
+        loginUser:     session?.Emp_Name ?? '',
+        qty:           quantity,
+        tableNo:       orderContext.tableCode ?? '',
+        kotId:         selectedItem.KOT_ID,
+        botId:         selectedItem.BOT_ID,
+      });
+
+      console.log('[MENU ITEMS] submitKotItem result:', JSON.stringify(result, null, 2));
+
+      if (!result.success) {
+        showMsg('warning', 'Error', 'Failed to submit order item. Please try again.');
+  return;
+      }
+
+      addOrderItem({
+        Prod_Code:     selectedItem.Prod_Code,
+        Prod_Name:     selectedItem.Prod_Name,
+        Dept_Code:     deptCode,
+        Dept_Name:     '',
+        Cat_Code:      catCode,
+        Cat_Name:      catName,
+        Selling_Price: selectedItem.Selling_Price ?? 0,
+        Qty:           quantity,
+        GuestID:       orderContext.guestId,
+        GuestName:     orderContext.guestName,
+        PitName:       orderContext.pitName,
+        TableCode:     orderContext.tableCode,
+        StaffCode:     orderContext.staffCode,
+        StaffName:     orderContext.staffName,
+      });
+
+      setQtyModalVisible(false);
+      navigation.navigate('CurrentOrder');
+
+    } finally {
+      setOrderSending(false);
+    }
   }
 
   // ── Product image ──────────────────────────────────────────────────────────
@@ -129,49 +183,44 @@ export default function MenuItemsScreen({
     const hasImage = !!item.ImagePath && item.ImagePath.trim() !== '';
     if (hasImage)
       return (
-        <Image
-          source={{ uri: item.ImagePath }}
-          style={S.prodImage}
-          resizeMode="cover"
-        />
+        <Image source={{ uri: item.ImagePath }} style={S.prodImage} resizeMode="cover" />
       );
     return (
       <View style={[S.prodImage, S.prodImageFallback]}>
-        <Ionicons name="restaurant-outline" size={26} color="#D1D5DB" />
+        <Ionicons name="restaurant-outline" size={26} color={colors.border} />
       </View>
     );
   }
 
-  // ── Badges ──────────────────────────────────────────────────────────────────
+  // ── Badges ─────────────────────────────────────────────────────────────────
   function Badges({ item }: { item: MenuItemResult }) {
-    const has =
-      item.isBestSeller === 'T' || item.Popular === 'T' || item.isOffer === 'T';
+    const has = item.isBestSeller === 'T' || item.Popular === 'T' || item.isOffer === 'T';
     if (!has) return null;
     return (
       <View style={S.badgeRow}>
         {item.isBestSeller === 'T' && (
-          <View style={[S.badge, S.badgeBest]}>
-            <Ionicons name="star" size={9} color="#92400E" />
-            <Text style={[S.badgeText, { color: '#92400E' }]}>Best Seller</Text>
+          <View style={[S.badge, { backgroundColor: colors.badge.bestSeller.bg }]}>
+            <Ionicons name="star" size={9} color={colors.badge.bestSeller.text} />
+            <Text style={[S.badgeText, { color: colors.badge.bestSeller.text }]}>Best Seller</Text>
           </View>
         )}
         {item.Popular === 'T' && (
-          <View style={[S.badge, S.badgePop]}>
-            <Ionicons name="flame" size={9} color="#B91C1C" />
-            <Text style={[S.badgeText, { color: '#B91C1C' }]}>Popular</Text>
+          <View style={[S.badge, { backgroundColor: colors.badge.popular.bg }]}>
+            <Ionicons name="flame" size={9} color={colors.badge.popular.text} />
+            <Text style={[S.badgeText, { color: colors.badge.popular.text }]}>Popular</Text>
           </View>
         )}
         {item.isOffer === 'T' && (
-          <View style={[S.badge, S.badgeOffer]}>
-            <Ionicons name="pricetag" size={9} color="#0F766E" />
-            <Text style={[S.badgeText, { color: '#0F766E' }]}>Offer</Text>
+          <View style={[S.badge, { backgroundColor: colors.badge.offer.bg }]}>
+            <Ionicons name="pricetag" size={9} color={colors.badge.offer.text} />
+            <Text style={[S.badgeText, { color: colors.badge.offer.text }]}>Offer</Text>
           </View>
         )}
       </View>
     );
   }
 
-  // ── Product card ────────────────────────────────────────────────────────────
+  // ── Product card ───────────────────────────────────────────────────────────
   function renderProduct({ item }: { item: MenuItemResult }) {
     const soldOut = item.isSoldOut === 'T';
     return (
@@ -188,10 +237,7 @@ export default function MenuItemsScreen({
           <View style={[S.cardAccent, soldOut && S.cardAccentSoldOut]} />
           <ProductImage item={item} />
           <View style={S.cardInfo}>
-            <Text
-              style={[S.prodName, soldOut && S.prodNameSoldOut]}
-              numberOfLines={2}
-            >
+            <Text style={[S.prodName, soldOut && S.prodNameSoldOut]} numberOfLines={2}>
               {item.Prod_Name}
             </Text>
             <Badges item={item} />
@@ -201,141 +247,103 @@ export default function MenuItemsScreen({
     );
   }
 
-  // ── Context label shown in modal ───────────────────────────────────────────
-  function getContextLabel(): string {
-    if (!orderContext.type) return '';
-    if (orderContext.type === 'guest')
-      return `Guest: ${orderContext.guestName ?? orderContext.guestId}`;
-    if (orderContext.type === 'visitor')
-      return `Visitor: ${orderContext.visitorName}`;
-    if (orderContext.type === 'executive_staff')
-      return `Staff: ${orderContext.staffName}`;
-    if (orderContext.type === 'pits')
-      return `Pit ${orderContext.pitName} · ${orderContext.tableCode}`;
-    return '';
-  }
-
   return (
     <View style={S.flex}>
-      <StatusBar barStyle="light-content" backgroundColor={PURPLE_DEEP} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
+      {/* ── Nav bar ── */}
       <View style={S.navBar}>
-        {/* <TouchableOpacity
-          style={S.navIconBtn}
-          onPress={() => navigation.goBack()}
+        <TouchableOpacity
+          style={S.iconBtn}
+          onPress={() => nav.dispatch(DrawerActions.openDrawer())}
           activeOpacity={0.75}
         >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </TouchableOpacity> */}
-         {/* Hamburger */}
-          <TouchableOpacity
-            style={S.iconBtn}
-            onPress={() => nav.dispatch(DrawerActions.openDrawer())}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="menu-outline" size={22} color="#fff" />
-          </TouchableOpacity>
+          <Ionicons name="menu-outline" size={22} color={colors.white} />
+        </TouchableOpacity>
+
         <View style={S.navTitleWrap}>
-          <Text style={S.navTitle} numberOfLines={1}>
-            {catName}
-          </Text>
+          <Text style={S.navTitle} numberOfLines={1}>{catName}</Text>
           <Text style={S.navSub}>Kitchen Order Ticket</Text>
         </View>
+
+        {/* ── Doc chip — matches ExecutiveStaffScreen ── */}
         {device?.Doc_No ? (
           <View style={S.docChip}>
-            <Text style={S.docChipText}>#{device.Doc_No}</Text>
+            <View style={S.docChipIconRow}>
+              <Ionicons name="document-text-outline" size={10} color={colors.docChip.labelText} />
+              <Text style={S.docChipLabel}>Doc No</Text>
+            </View>
+            <Text style={S.docChipValue}>{device.Doc_No}</Text>
           </View>
         ) : (
-          <View style={{ width: 60 }} />
+          <View style={{ width: 72 }} />
         )}
       </View>
 
+      {/* ── Search bar ── */}
       {!loading && !error && allProducts.length > 0 && (
         <View style={S.searchWrap}>
           <View style={S.searchBox}>
-            <Ionicons
-              name="search-outline"
-              size={17}
-              color={TEXT_LIGHT}
-              style={{ marginRight: 8 }}
-            />
+            <Ionicons name="search-outline" size={17} color={colors.muted} style={{ marginRight: 8 }} />
             <TextInput
               style={S.searchInput}
               value={query}
               onChangeText={handleSearch}
               placeholder="Search items…"
-              placeholderTextColor={TEXT_LIGHT}
+              placeholderTextColor={colors.muted}
               returnKeyType="search"
               autoCapitalize="none"
             />
             {query.length > 0 && (
-              <TouchableOpacity
-                onPress={handleClear}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close-circle" size={18} color={TEXT_LIGHT} />
+              <TouchableOpacity onPress={handleClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={18} color={colors.muted} />
               </TouchableOpacity>
             )}
           </View>
         </View>
       )}
 
+      {/* ── States ── */}
       {loading ? (
         <View style={S.centerWrap}>
-          <ActivityIndicator size="large" color={PURPLE} />
-          <Text style={S.loadingText}>Loading products…</Text>
+          {/* <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={S.loadingText}>Loading products…</Text> */}
+            <LottieView
+      source={require('../../assets/animations/Loading_Animation.json')}
+      autoPlay
+      loop
+      style={{ width: 120, height: 120 }}
+    />
         </View>
       ) : error ? (
         <View style={S.centerWrap}>
           <View style={S.emptyIconWrap}>
-            <Ionicons
-              name="cloud-offline-outline"
-              size={32}
-              color={TEXT_LIGHT}
-            />
+            <Ionicons name="cloud-offline-outline" size={32} color={colors.muted} />
           </View>
           <Text style={S.emptyTitle}>Could not load products</Text>
           <Text style={S.emptySub}>{error}</Text>
-          <TouchableOpacity
-            style={S.retryBtn}
-            onPress={fetchProducts}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="refresh-outline" size={15} color={WHITE} />
+          <TouchableOpacity style={S.retryBtn} onPress={fetchProducts} activeOpacity={0.8}>
+            <Ionicons name="refresh-outline" size={15} color={colors.white} />
             <Text style={S.retryBtnText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : filtered.length === 0 ? (
         <View style={S.centerWrap}>
           <View style={S.emptyIconWrap}>
-            <Ionicons
-              name={query ? 'search-outline' : 'restaurant-outline'}
-              size={32}
-              color={TEXT_LIGHT}
-            />
+            <Ionicons name={query ? 'search-outline' : 'restaurant-outline'} size={32} color={colors.muted} />
           </View>
-          <Text style={S.emptyTitle}>
-            {query ? 'No results' : 'No products found'}
-          </Text>
+          <Text style={S.emptyTitle}>{query ? 'No results' : 'No products found'}</Text>
           <Text style={S.emptySub}>
             {query ? `Nothing matched "${query}"` : `No items in ${catName}`}
           </Text>
           {query ? (
-            <TouchableOpacity
-              style={S.retryBtn}
-              onPress={handleClear}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="close-outline" size={15} color={WHITE} />
+            <TouchableOpacity style={S.retryBtn} onPress={handleClear} activeOpacity={0.8}>
+              <Ionicons name="close-outline" size={15} color={colors.white} />
               <Text style={S.retryBtnText}>Clear</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              style={S.retryBtn}
-              onPress={fetchProducts}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="refresh-outline" size={15} color={WHITE} />
+            <TouchableOpacity style={S.retryBtn} onPress={fetchProducts} activeOpacity={0.8}>
+              <Ionicons name="refresh-outline" size={15} color={colors.white} />
               <Text style={S.retryBtnText}>Refresh</Text>
             </TouchableOpacity>
           )}
@@ -351,293 +359,175 @@ export default function MenuItemsScreen({
         />
       )}
 
-      {/* ── Qty Modal ── */}
-      <Modal
+      {/* ── Modal — now lives in Components/AddToOrderModal ── */}
+      <AddToOrderModal
         visible={qtyModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setQtyModalVisible(false)}
-      >
-        <View style={S.modalOverlay}>
-          <View style={S.modalCard}>
-            <Text style={S.modalTitle}>Add to Order</Text>
+        itemName={selectedItem?.Prod_Name ?? ''}
+        qty={qty}
+        orderSending={orderSending}
+        onQtyChange={setQty}
+        onAdd={handleAdd}
+        onOrder={handleOrder}
+        onReturn={() => setQtyModalVisible(false)}
+        onCancel={() => setQtyModalVisible(false)}
+      />
 
-            {/* Who is ordering — from context */}
-            {/* {!!orderContext.type && (
-              <View style={S.contextBadge}>
-                <Ionicons name="person-outline" size={12} color={PURPLE} />
-                <Text style={S.contextBadgeText}>{getContextLabel()}</Text>
-              </View>
-            )} */}
-            <Text style={S.modalSub}>Add Qty to Order</Text>
-
-            <Text style={S.modalItemName}>{selectedItem?.Prod_Name}</Text>
-
-            <TextInput
-              style={S.qtyInput}
-              value={qty}
-              onChangeText={setQty}
-              keyboardType="numeric"
-              placeholder="Enter quantity"
-              placeholderTextColor="#9CA3AF"
-            />
-
-            <View style={S.modalBtnRow}>
-              <TouchableOpacity
-                style={[S.modalBtn, S.btnAdd]}
-                onPress={handleAdd}
-              >
-                <Text style={S.modalBtnText}>Add</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[S.modalBtn, S.btnOrder]}
-                onPress={handleOrder}
-              >
-                <Text style={S.modalBtnText}>Order</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[S.modalBtn, S.btnReturn]}>
-                <Text style={S.modalBtnText}>Return</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[S.modalBtn, S.btnCancel]}
-                onPress={() => setQtyModalVisible(false)}
-              >
-                <Text style={S.modalBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* ── Error MessageBox ── */}
+      <MessageBox
+        visible={msgBox.visible}
+        variant={msgBox.variant}
+        title={msgBox.title}
+        message={msgBox.message}
+        buttons={[
+          {
+            label: 'OK',
+            style: 'destructive',
+            onPress: () => setMsgBox(p => ({ ...p, visible: false })),
+          },
+        ]}
+        onDismiss={() => setMsgBox(p => ({ ...p, visible: false }))}
+      />
     </View>
   );
 }
 
-const PURPLE_DEEP = '#3B0F8C';
-const PURPLE = '#6C1FC9';
-const WHITE = '#FFFFFF';
-const BG = '#F5F6FA';
-const CARD = '#FFFFFF';
-const BORDER = '#EDF0F4';
-const TEXT_DARK = '#1A1D2E';
-const TEXT_MID = '#6B7280';
-const TEXT_LIGHT = '#B0B8C1';
-
 const S = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: BG },
+  flex: { flex: 1, backgroundColor: colors.background },
+
+  // ── Nav bar ────────────────────────────────────────────────────────────────
   navBar: {
-    backgroundColor: PURPLE_DEEP,
-    paddingTop: Platform.OS === 'ios' ? 52 : 32,
-    paddingBottom: 14,
+    backgroundColor:   colors.primary,
+    paddingTop:        Platform.OS === 'ios' ? 52 : 32,
+    paddingBottom:     14,
     paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               8,
   },
-  navIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  iconBtn: {
+    width:           36,
+    height:          36,
+    borderRadius:    10,
+    backgroundColor: colors.overlay.white15,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
   navTitleWrap: { flex: 1, alignItems: 'center' },
-  navTitle: { fontSize: 18, fontWeight: '800', color: WHITE, letterSpacing: 1 },
-  navSub: {
-    fontSize: 9,
-    color: 'rgba(255,255,255,0.5)',
-    letterSpacing: 1.5,
-    marginTop: 1,
-  },
+  navTitle: { fontSize: 18, fontWeight: '800', color: colors.white, letterSpacing: 1 },
+  navSub:   { fontSize: 9,  color: colors.overlay.muted65, letterSpacing: 1.5, marginTop: 1 },
+
+  // ── Doc chip — matches ExecutiveStaffScreen ────────────────────────────────
   docChip: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius: 20,
+    backgroundColor:   colors.docChip.bg,
+    borderRadius:      12,
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
+    paddingVertical:    7,
+    alignItems:        'center',
+    minWidth:          72,
   },
-  docChipText: { fontSize: 11, color: WHITE, fontWeight: '600' },
+  docChipIconRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 },
+  docChipLabel: {
+    fontSize:      8,
+    color:         colors.docChip.labelText,
+    fontWeight:    '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  docChipValue: {
+    fontSize:      15,
+    color:         colors.docChip.valueText,
+    fontWeight:    '900',
+    letterSpacing: -0.3,
+  },
+
+  // ── Search ─────────────────────────────────────────────────────────────────
   searchWrap: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2 },
   searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CARD,
-    borderRadius: 13,
-    borderWidth: 1.5,
-    borderColor: BORDER,
+    flexDirection:     'row',
+    alignItems:        'center',
+    backgroundColor:   colors.card,
+    borderRadius:      13,
+    borderWidth:       1.5,
+    borderColor:       colors.border,
     paddingHorizontal: 14,
-    elevation: 2,
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
+    elevation:         2,
+    shadowColor:       colors.shadow.card,
+    shadowOffset:      { width: 0, height: 1 },
+    shadowOpacity:     0.06,
+    shadowRadius:      6,
   },
-  searchInput: { flex: 1, fontSize: 14, color: TEXT_DARK, paddingVertical: 12 },
+  searchInput: { flex: 1, fontSize: 14, color: colors.text.dark, paddingVertical: 12 },
+
+  // ── List ───────────────────────────────────────────────────────────────────
   list: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 32, gap: 10 },
+
+  // ── Product card ───────────────────────────────────────────────────────────
   card: {
-    backgroundColor: CARD,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-    shadowColor: '#9CA3AF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: colors.card,
+    borderRadius:    16,
+    borderWidth:     1,
+    borderColor:     colors.border,
+    flexDirection:   'row',
+    alignItems:      'center',
+    overflow:        'hidden',
+    shadowColor:     colors.shadow.card,
+    shadowOffset:    { width: 0, height: 2 },
+    shadowOpacity:   0.07,
+    shadowRadius:    8,
+    elevation:       3,
   },
-  cardSoldOut: { opacity: 0.55 },
-  cardAccent: { width: 4, alignSelf: 'stretch', backgroundColor: PURPLE },
-  cardAccentSoldOut: { backgroundColor: '#D1D5DB' },
+  cardSoldOut:      { opacity: 0.55 },
+  cardAccent:       { width: 4, alignSelf: 'stretch', backgroundColor: colors.primary },
+  cardAccentSoldOut:{ backgroundColor: colors.border },
   prodImage: {
-    width: 68,
-    height: 68,
-    borderRadius: 12,
-    marginLeft: 12,
-    marginVertical: 12,
+    width:         68,
+    height:        68,
+    borderRadius:  12,
+    marginLeft:    12,
+    marginVertical:12,
   },
   prodImageFallback: {
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.background,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
-  cardInfo: { flex: 1, paddingHorizontal: 12, paddingVertical: 12 },
-  prodName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: TEXT_DARK,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  prodNameSoldOut: { color: TEXT_LIGHT },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 2 },
+  cardInfo:        { flex: 1, paddingHorizontal: 12, paddingVertical: 12 },
+  prodName:        { fontSize: 14, fontWeight: '700', color: colors.text.dark, lineHeight: 20, marginBottom: 4 },
+  prodNameSoldOut: { color: colors.muted },
+  badgeRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 2 },
   badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               3,
     paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 20,
+    paddingVertical:   2,
+    borderRadius:      20,
   },
   badgeText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.2 },
-  badgeBest: { backgroundColor: '#FEF3C7' },
-  badgePop: { backgroundColor: '#FEE2E2' },
-  badgeOffer: { backgroundColor: '#CCFBF1' },
-  centerWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  loadingText: { fontSize: 14, color: TEXT_MID, fontWeight: '500' },
-  emptyIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  emptyTitle: { fontSize: 15, fontWeight: '600', color: TEXT_MID },
-  emptySub: { fontSize: 12, color: TEXT_LIGHT, textAlign: 'center' },
-  retryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: PURPLE_DEEP,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 4,
-  },
-  retryBtnText: { fontSize: 13, fontWeight: '700', color: WHITE },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCard: {
-    width: '85%',
-    backgroundColor: WHITE,
-    borderRadius: 18,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: TEXT_DARK,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  contextBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F3EEFF',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    alignSelf: 'center',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E9D8FD',
-  },
-  contextBadgeText: { fontSize: 12, fontWeight: '600', color: PURPLE },
-  modalSub: {
-  fontSize: 12,
-  color: TEXT_MID,
-  textAlign: 'center',
-  marginBottom: 10,
-},
 
-  modalItemName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: TEXT_DARK,
-    textAlign: 'center',
-    marginBottom: 12,
+  // ── Centre states ──────────────────────────────────────────────────────────
+  centerWrap:   { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText:  { fontSize: 14, color: colors.text.mid, fontWeight: '500' },
+  emptyIconWrap:{
+    width:           64,
+    height:          64,
+    borderRadius:    32,
+    backgroundColor: colors.background,
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    4,
   },
-  qtyInput: {
-    borderWidth: 1.5,
-    borderColor: BORDER,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 16,
-    color: TEXT_DARK,
+  emptyTitle:   { fontSize: 15, fontWeight: '600', color: colors.text.mid },
+  emptySub:     { fontSize: 12, color: colors.muted, textAlign: 'center' },
+  retryBtn: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               6,
+    backgroundColor:   colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical:   10,
+    borderRadius:      20,
+    marginTop:         4,
   },
-  modalBtnRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  modalBtn: {
-    flex: 1,
-    minWidth: '45%',
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  modalBtnText: { color: WHITE, fontWeight: '700', fontSize: 13 },
-  btnAdd: { backgroundColor: PURPLE },
-  btnOrder: { backgroundColor: '#16A34A' },
-  btnReturn: { backgroundColor: '#EA580C' },
-  btnCancel: { backgroundColor: '#6B7280' },
-  iconBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
+  retryBtnText: { fontSize: 13, fontWeight: '700', color: colors.white },
 });
