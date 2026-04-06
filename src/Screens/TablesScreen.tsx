@@ -5,7 +5,6 @@ import {
   StyleSheet,
   StatusBar,
   Platform,
-  ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
   FlatList,
@@ -15,12 +14,16 @@ import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { loadTables, FloorResult, TableResult } from '../Api/api';
 import { useAppStore } from '../Store/store';
 import colors from '../themes/colors';
+import LottieView from 'lottie-react-native';
 
 const FLOOR_ICONS = ['business-outline', 'layers-outline', 'briefcase-outline'] as const;
 
 export default function TablesScreen() {
   const nav    = useNavigation<any>();
   const device = useAppStore(state => state.device);
+  const orderItemCount  = useAppStore(state => state.orderItemCount);
+
+const itemCount = orderItemCount();
 
   const [floors,        setFloors]        = useState<FloorResult[]>([]);
   const [tablesByFloor, setTablesByFloor] = useState<TableResult[][]>([]);
@@ -105,7 +108,25 @@ export default function TablesScreen() {
           <Text style={S.navSub}>SELECT A TABLE</Text>
         </View>
 
-        {/* Doc chip — matches ExecutiveStaffScreen */}
+       {/* Cart icon */}
+        <View style={S.navActions}>
+          <TouchableOpacity
+            style={S.iconBtn}
+            onPress={() => navigation.navigate('CurrentOrder')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="cart-outline" size={20} color={colors.white} />
+            {itemCount > 0 && (
+              <View style={S.cartBadge}>
+                <Text style={S.cartBadgeText}>
+                  {itemCount > 99 ? '99+' : String(itemCount)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Doc chip — matches GuestDetailsScreen / ExecutiveStaffScreen */}
         {device?.Doc_No ? (
           <View style={S.docChip}>
             <View style={S.docChipIconRow}>
@@ -122,8 +143,12 @@ export default function TablesScreen() {
       {/* ── Body ── */}
       {loading ? (
         <View style={S.center}>
-          <ActivityIndicator size="large" color={colors.tables.purple} />
-          <Text style={S.loadingText}>Loading tables…</Text>
+          <LottieView
+      source={require('../../assets/animations/Loading_Animation.json')}
+      autoPlay
+      loop
+      style={{ width: 120, height: 120 }}
+    />
         </View>
       ) : error ? (
         <View style={S.center}>
@@ -358,4 +383,24 @@ const S = StyleSheet.create({
   // ── Empty ──
   empty:     { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 12 },
   emptyText: { fontSize: 15, color: colors.tables.textLight, fontWeight: '600' },
+  navActions: { position: 'relative' },
+
+  cartBadge: {
+    position:          'absolute',
+    top:               -4,
+    right:             -4,
+    minWidth:          16,
+    height:            16,
+    borderRadius:      8,
+    backgroundColor:   colors.gold,
+    alignItems:        'center',
+    justifyContent:    'center',
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: {
+    fontSize:   9,
+    fontWeight: '800',
+    color:      colors.primary,
+    lineHeight: 12,
+  },
 });

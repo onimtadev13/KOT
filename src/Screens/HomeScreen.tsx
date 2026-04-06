@@ -13,6 +13,9 @@ import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useAppStore } from '../Store/store';
 import colors from '../themes/colors';
 import { loadButtonVisibility } from '../Api/api';
+// Add these imports at the top
+import { BackHandler } from 'react-native';
+import MessageBox from '../Components/MessageBox'; // adjust path as needed
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Button definitions

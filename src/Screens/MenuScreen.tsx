@@ -73,6 +73,10 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
   const nav    = useNavigation<any>();
   const device = useAppStore(state => state.device);
 
+  const orderItemCount  = useAppStore(state => state.orderItemCount);
+
+const itemCount = orderItemCount();
+
   // ── Store: department cache ───────────────────────────────────────────────
   const storedDepts   = useAppStore(state => state.departments);
   const setStoreDepts = useAppStore(state => state.setDepartments);
@@ -344,7 +348,25 @@ export default function MenuScreen({ navigation }: { navigation: any }) {
           <Text style={S.navSub}>Kitchen Order Ticket</Text>
         </View>
 
-        {/* Doc chip — matches ExecutiveStaffScreen */}
+        {/* Cart icon */}
+        <View style={S.navActions}>
+          <TouchableOpacity
+            style={S.iconBtn}
+            onPress={() => navigation.navigate('CurrentOrder')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="cart-outline" size={20} color={colors.white} />
+            {itemCount > 0 && (
+              <View style={S.cartBadge}>
+                <Text style={S.cartBadgeText}>
+                  {itemCount > 99 ? '99+' : String(itemCount)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Doc chip — matches GuestDetailsScreen / ExecutiveStaffScreen */}
         {device?.Doc_No ? (
           <View style={S.docChip}>
             <View style={S.docChipIconRow}>
@@ -629,4 +651,24 @@ const S = StyleSheet.create({
   },
   emptyTitle: { fontSize: 15, fontWeight: '600', color: colors.menu.textMid },
   emptySub:   { fontSize: 12, color: colors.menu.textLight, textAlign: 'center' },
+  navActions: { position: 'relative' },
+
+  cartBadge: {
+    position:          'absolute',
+    top:               -4,
+    right:             -4,
+    minWidth:          16,
+    height:            16,
+    borderRadius:      8,
+    backgroundColor:   colors.gold,
+    alignItems:        'center',
+    justifyContent:    'center',
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: {
+    fontSize:   9,
+    fontWeight: '800',
+    color:      colors.primary,
+    lineHeight: 12,
+  },
 });

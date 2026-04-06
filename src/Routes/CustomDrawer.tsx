@@ -37,7 +37,8 @@ const SECTIONS: DrawerSection[] = [
   {
     title: 'Orders',
     items: [
-      { key: 'Guest',              label: 'Guest',                      icon: 'person-outline',          screen: 'Home'   },
+      { key: 'Home',              label: 'Home',                      icon: 'home-outline',          screen: 'Home'   },
+      { key: 'Guest',              label: 'Guest',                      icon: 'person-outline',          screen: 'GuestDetails'   },
       { key: 'Menu',               label: 'Menu',                       icon: 'book-outline',            screen: 'Menu'           },
       { key: 'CurrentOrder',       label: 'Current Order',              icon: 'receipt-outline',         screen: undefined        },
       { key: 'PastOrders',         label: 'Past Orders',                icon: 'time-outline',            screen: 'PastOrders'    },

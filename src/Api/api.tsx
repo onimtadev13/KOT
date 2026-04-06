@@ -1556,3 +1556,218 @@ export async function loadPitDeptOrders(
     return [];
   }
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load Pit Member Tables  (iid: 3, con: 2)
+//    Text1 = MID
+// ─────────────────────────────────────────────────────────────────────────────
+export interface PitMemberTableResult {
+  [key: string]: any;
+}
+
+export async function loadPitMemberTables(
+  mid: string,
+): Promise<PitMemberTableResult[]> {
+  try {
+    console.log('[PIT MEMBER TABLES] Loading for MID:', mid);
+
+    const url  = APIURL;
+    const body = {
+      HasReturnData: 'T',
+      Parameters: [
+        { Para_Data: '3',  Para_Direction: 'Input', Para_Lenth: 10,  Para_Name: '@Iid',  Para_Type: 'int'     },
+        { Para_Data: mid,  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1', Para_Type: 'VARCHAR' },
+      ],
+      SpName: 'sp_Android_Common_API',
+      con:    '2',
+    };
+
+    const response = await fetch(url, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-cache' },
+      body:    JSON.stringify(body),
+    });
+
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+    const text = await response.text();
+    console.log('[PIT MEMBER TABLES] Raw response:', text);
+
+    const data  = JSON.parse(text);
+    const table: PitMemberTableResult[] = data?.CommonResult?.Table ?? [];
+    console.log('[PIT MEMBER TABLES] Loaded:', table.length, 'rows');
+
+    if (table.length > 0) {
+      console.log('[PIT MEMBER TABLES] Fields:', Object.keys(table[0]));
+      console.log('[PIT MEMBER TABLES] First row:', JSON.stringify(table[0]));
+    }
+
+    return table;
+
+  } catch (error: any) {
+    console.error('[PIT MEMBER TABLES] Error:', error);
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load Pit Member Slots  (iid: 12, con: 2)
+//    Text1 = MID
+// ─────────────────────────────────────────────────────────────────────────────
+export interface PitMemberSlotResult {
+  [key: string]: any;
+}
+
+export async function loadPitMemberSlots(
+  mid: string,
+): Promise<PitMemberSlotResult[]> {
+  try {
+    console.log('[PIT MEMBER SLOTS] Loading for MID:', mid);
+
+    const url  = APIURL;
+    const body = {
+      HasReturnData: 'T',
+      Parameters: [
+        { Para_Data: '12', Para_Direction: 'Input', Para_Lenth: 10,  Para_Name: '@Iid',  Para_Type: 'int'     },
+        { Para_Data: mid,  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1', Para_Type: 'VARCHAR' },
+      ],
+      SpName: 'sp_Android_Common_API',
+      con:    '2',
+    };
+
+    const response = await fetch(url, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-cache' },
+      body:    JSON.stringify(body),
+    });
+
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+    const text = await response.text();
+    console.log('[PIT MEMBER SLOTS] Raw response:', text);
+
+    const data  = JSON.parse(text);
+    const table: PitMemberSlotResult[] = data?.CommonResult?.Table ?? [];
+    console.log('[PIT MEMBER SLOTS] Loaded:', table.length, 'rows');
+
+    if (table.length > 0) {
+      console.log('[PIT MEMBER SLOTS] Fields:', Object.keys(table[0]));
+      console.log('[PIT MEMBER SLOTS] First row:', JSON.stringify(table[0]));
+    }
+
+    return table;
+
+  } catch (error: any) {
+    console.error('[PIT MEMBER SLOTS] Error:', error);
+    return [];
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load Pit Member Points  (iid: 14, con: 2)
+//    Text1 = MID
+// ─────────────────────────────────────────────────────────────────────────────
+export interface PitMemberPointsResult {
+  [key: string]: any;
+}
+
+export async function loadPitMemberPoints(
+  mid: string,
+): Promise<PitMemberPointsResult[]> {
+  try {
+    console.log('[PIT MEMBER POINTS] Loading for MID:', mid);
+
+    const url  = APIURL;
+    const body = {
+      HasReturnData: 'T',
+      Parameters: [
+        { Para_Data: '14', Para_Direction: 'Input', Para_Lenth: 10,  Para_Name: '@Iid',  Para_Type: 'int'     },
+        { Para_Data: mid,  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1', Para_Type: 'VARCHAR' },
+      ],
+      SpName: 'sp_Android_Common_API',
+      con:    '2',
+    };
+
+    const response = await fetch(url, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-cache' },
+      body:    JSON.stringify(body),
+    });
+
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+    const text = await response.text();
+    console.log('[PIT MEMBER POINTS] Raw response:', text);
+
+    const data  = JSON.parse(text);
+    const table: PitMemberPointsResult[] = data?.CommonResult?.Table ?? [];
+    console.log('[PIT MEMBER POINTS] Loaded:', table.length, 'rows');
+
+    if (table.length > 0) {
+      console.log('[PIT MEMBER POINTS] Fields:', Object.keys(table[0]));
+      console.log('[PIT MEMBER POINTS] First row:', JSON.stringify(table[0]));
+    }
+
+    return table;
+
+  } catch (error: any) {
+    console.error('[PIT MEMBER POINTS] Error:', error);
+    return [];
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Load Pit Member Drop  (iid: 13, con: 2)
+//    Text1 = MID
+// ─────────────────────────────────────────────────────────────────────────────
+export interface PitMemberDropResult {
+  [key: string]: any;
+}
+
+export async function loadPitMemberDrop(
+  mid: string,
+): Promise<PitMemberDropResult[]> {
+  try {
+    console.log('[PIT MEMBER DROP] Loading for MID:', mid);
+
+    const url  = APIURL;
+    const body = {
+      HasReturnData: 'T',
+      Parameters: [
+        { Para_Data: '13', Para_Direction: 'Input', Para_Lenth: 10,  Para_Name: '@Iid',  Para_Type: 'int'     },
+        { Para_Data: mid,  Para_Direction: 'Input', Para_Lenth: 100, Para_Name: '@Text1', Para_Type: 'VARCHAR' },
+      ],
+      SpName: 'sp_Android_Common_API',
+      con:    '2',
+    };
+
+    const response = await fetch(url, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json', 'cache-control': 'no-cache' },
+      body:    JSON.stringify(body),
+    });
+
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+    const text = await response.text();
+    console.log('[PIT MEMBER DROP] Raw response:', text);
+
+    const data  = JSON.parse(text);
+    const table: PitMemberDropResult[] = data?.CommonResult?.Table ?? [];
+    console.log('[PIT MEMBER DROP] Loaded:', table.length, 'rows');
+
+    if (table.length > 0) {
+      console.log('[PIT MEMBER DROP] Fields:', Object.keys(table[0]));
+      console.log('[PIT MEMBER DROP] First row:', JSON.stringify(table[0]));
+    }
+
+    return table;
+
+  } catch (error: any) {
+    console.error('[PIT MEMBER DROP] Error:', error);
+    return [];
+  }
+}

@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  FlatList,
   StatusBar,
   Platform,
   TextInput,
   ActivityIndicator,
   Image,
-  FlatList,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useAppStore } from '../Store/store';
@@ -56,6 +58,9 @@ export default function GuestDetailsScreen({
   const nav             = useNavigation<any>();
   const device          = useAppStore(state => state.device);
   const setOrderContext = useAppStore(state => state.setOrderContext);
+  const orderItemCount  = useAppStore(state => state.orderItemCount);
+
+  const itemCount = orderItemCount();
 
   const [searchMode,  setSearchMode]  = useState<SearchMode>('id');
   const [searchQuery, setSearchQuery] = useState('');
@@ -63,16 +68,17 @@ export default function GuestDetailsScreen({
   const [searchDone,  setSearchDone]  = useState(false);
   const [results,     setResults]     = useState<GuestSearchResult[]>([]);
 
+  const inputRef = useRef<TextInput>(null);
+
   // ── Search ─────────────────────────────────────────────────────────────────
   async function handleSearch() {
     if (!searchQuery.trim()) return;
+    Keyboard.dismiss();
     setIsSearching(true);
     setSearchDone(false);
     setResults([]);
     try {
-      console.log('[GUEST SCREEN] Calling searchGuests — query:', searchQuery.trim(), 'mode:', searchMode);
       const data = await searchGuests(searchQuery.trim(), searchMode);
-      console.log('[GUEST SCREEN] Results received:', data.length);
       setResults(data);
     } catch (e) {
       console.error('[GUEST SCREEN] Search error:', e);
@@ -94,15 +100,14 @@ export default function GuestDetailsScreen({
     handleClear();
   }
 
- function handleSelect(guest: GuestSearchResult) {
-  console.log('[GUEST SCREEN] Selected:', guest.MName, guest.MID);
-  setOrderContext({ type: 'guest', guestId: guest.MID, guestName: guest.MName });
-  navigation.navigate('PitsCustomerDetails', {
-    MID:     guest.MID,
-    MName:   guest.MName,
-    tblCode: 'GUEST',   // or whatever makes sense for a guest order
-  });
-}
+  function handleSelect(guest: GuestSearchResult) {
+    setOrderContext({ type: 'guest', guestId: guest.MID, guestName: guest.MName });
+    navigation.navigate('PitsCustomerDetails', {
+      MID:     guest.MID,
+      MName:   guest.MName,
+      tblCode: 'GUEST',
+    });
+  }
 
   // ── Guest card ─────────────────────────────────────────────────────────────
   function renderGuest({ item }: { item: GuestSearchResult }) {
@@ -135,158 +140,183 @@ export default function GuestDetailsScreen({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <View style={S.flex}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+    // Tapping anywhere outside the input dismisses the keyboard
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={S.flex}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* Nav bar */}
-      <View style={S.navBar}>
-        <TouchableOpacity
-          style={S.iconBtn}
-          onPress={() => nav.dispatch(DrawerActions.openDrawer())}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="menu-outline" size={22} color={colors.white} />
-        </TouchableOpacity>
+        {/* ── Nav bar ── */}
+        <View style={S.navBar}>
+          <TouchableOpacity
+            style={S.iconBtn}
+            onPress={() => nav.dispatch(DrawerActions.openDrawer())}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="menu-outline" size={22} color={colors.white} />
+          </TouchableOpacity>
 
-        <View style={S.navTitleWrap}>
-          <Text style={S.navTitle}>Guest Order</Text>
-          <Text style={S.navSub}>Kitchen Order Ticket</Text>
-        </View>
+          <View style={S.navTitleWrap}>
+            <Text style={S.navTitle}>Guest Order</Text>
+            <Text style={S.navSub}>Kitchen Order Ticket</Text>
+          </View>
 
-        {device?.Doc_No ? (
-          <View style={S.docChip}>
-            <View style={S.docChipIconRow}>
-              <Ionicons name="document-text-outline" size={10} color={colors.docChip.labelText} />
-              <Text style={S.docChipLabel}>Doc No</Text>
+          {/* ── Cart icon (matches HomeScreen) ── */}
+          <View style={S.navActions}>
+            <TouchableOpacity
+              style={S.iconBtn}
+              onPress={() => navigation.navigate('CurrentOrder')}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="cart-outline" size={20} color={colors.white} />
+              {itemCount > 0 && (
+                <View style={S.cartBadge}>
+                  <Text style={S.cartBadgeText}>
+                    {itemCount > 99 ? '99+' : String(itemCount)}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {device?.Doc_No ? (
+            <View style={S.docChip}>
+              <View style={S.docChipIconRow}>
+                <Ionicons name="document-text-outline" size={10} color={colors.docChip.labelText} />
+                <Text style={S.docChipLabel}>Doc No</Text>
+              </View>
+              <Text style={S.docChipValue}>{device.Doc_No}</Text>
             </View>
-            <Text style={S.docChipValue}>{device.Doc_No}</Text>
+          ) : (
+            <View style={{ width: 72 }} />
+          )}
+        </View>
+
+        {/* ── Search card ── */}
+        <View style={S.searchCard}>
+
+          <View style={S.cardHeader}>
+            <View style={S.cardHeaderIcon}>
+              <Ionicons name="search" size={15} color={colors.primary} />
+            </View>
+            <Text style={S.cardTitle}>Search Member</Text>
           </View>
-        ) : (
-          <View style={{ width: 72 }} />
-        )}
+
+          {/* Toggle */}
+          <View style={S.toggleRow}>
+            <TouchableOpacity
+              style={[S.toggleBtn, searchMode === 'id' && S.toggleBtnActive]}
+              onPress={() => handleSwitchMode('id')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="card-outline"
+                size={14}
+                color={searchMode === 'id' ? colors.white : colors.text.muted}
+              />
+              <Text style={[S.toggleText, searchMode === 'id' && S.toggleTextActive]}>
+                Member ID
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.toggleBtn, searchMode === 'name' && S.toggleBtnActive]}
+              onPress={() => handleSwitchMode('name')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="person-outline"
+                size={14}
+                color={searchMode === 'name' ? colors.white : colors.text.muted}
+              />
+              <Text style={[S.toggleText, searchMode === 'name' && S.toggleTextActive]}>
+                Name
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Search input */}
+          <View style={S.searchRow}>
+            <View style={S.searchInputWrap}>
+              <Ionicons
+                name={searchMode === 'id' ? 'barcode-outline' : 'search-outline'}
+                size={18}
+                color={colors.muted}
+                style={S.searchIcon}
+              />
+              <TextInput
+                ref={inputRef}
+                style={S.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={searchMode === 'id' ? 'Enter member ID…' : 'Enter member name…'}
+                placeholderTextColor={colors.muted}
+                keyboardType={searchMode === 'id' ? 'number-pad' : 'default'}
+                autoCapitalize={searchMode === 'name' ? 'words' : 'none'}
+                returnKeyType="search"
+                onSubmitEditing={handleSearch}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={handleClear} style={S.clearBtn}>
+                  <Ionicons name="close-circle" size={18} color={colors.muted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[S.searchBtn, (!searchQuery.trim() || isSearching) && S.searchBtnDisabled]}
+              onPress={handleSearch}
+              disabled={!searchQuery.trim() || isSearching}
+              activeOpacity={0.85}
+            >
+              {isSearching
+                ? <ActivityIndicator size="small" color={colors.white} />
+                : <Ionicons name="search" size={18} color={colors.white} />
+              }
+            </TouchableOpacity>
+          </View>
+
+          {/* Hint */}
+          {!searchDone && !isSearching && (
+            <View style={S.hintRow}>
+              <Ionicons name="information-circle-outline" size={14} color={colors.muted} />
+              <Text style={S.hintText}>
+                {searchMode === 'id'
+                  ? 'Enter the member ID to search'
+                  : 'Enter full or partial name to search'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── Results / states ── */}
+        {isSearching ? (
+          <View style={S.centerWrap}>
+            <ActivityIndicator size="large" color={colors.gold} />
+            <Text style={S.loadingText}>Searching members…</Text>
+          </View>
+        ) : searchDone && results.length === 0 ? (
+          <View style={S.centerWrap}>
+            <View style={S.emptyIconWrap}>
+              <Ionicons name="person-remove-outline" size={32} color={colors.muted} />
+            </View>
+            <Text style={S.emptyTitle}>No member found</Text>
+            <Text style={S.emptySub}>
+              Try a different {searchMode === 'id' ? 'ID' : 'name'}
+            </Text>
+          </View>
+        ) : results.length > 0 ? (
+          <FlatList
+            data={results}
+            keyExtractor={(item, i) => item.MID ?? String(i)}
+            renderItem={renderGuest}
+            contentContainerStyle={S.list}
+            showsVerticalScrollIndicator={false}
+            // Dismiss keyboard when the list is scrolled
+            keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={Keyboard.dismiss}
+          />
+        ) : null}
       </View>
-
-      {/* Search card */}
-      <View style={S.searchCard}>
-
-        <View style={S.cardHeader}>
-          <View style={S.cardHeaderIcon}>
-            <Ionicons name="search" size={15} color={colors.primary} />
-          </View>
-          <Text style={S.cardTitle}>Search Member</Text>
-        </View>
-
-        {/* Toggle */}
-        <View style={S.toggleRow}>
-          <TouchableOpacity
-            style={[S.toggleBtn, searchMode === 'id' && S.toggleBtnActive]}
-            onPress={() => handleSwitchMode('id')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="card-outline"
-              size={14}
-              color={searchMode === 'id' ? colors.white : colors.text.muted}
-            />
-            <Text style={[S.toggleText, searchMode === 'id' && S.toggleTextActive]}>
-              Member ID
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[S.toggleBtn, searchMode === 'name' && S.toggleBtnActive]}
-            onPress={() => handleSwitchMode('name')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="person-outline"
-              size={14}
-              color={searchMode === 'name' ? colors.white : colors.text.muted}
-            />
-            <Text style={[S.toggleText, searchMode === 'name' && S.toggleTextActive]}>
-              Name
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Search input */}
-        <View style={S.searchRow}>
-          <View style={S.searchInputWrap}>
-            <Ionicons
-              name={searchMode === 'id' ? 'barcode-outline' : 'search-outline'}
-              size={18}
-              color={colors.muted}
-              style={S.searchIcon}
-            />
-            <TextInput
-              style={S.searchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={searchMode === 'id' ? 'Enter member ID…' : 'Enter member name…'}
-              placeholderTextColor={colors.muted}
-              keyboardType={searchMode === 'id' ? 'number-pad' : 'default'}
-              autoCapitalize={searchMode === 'name' ? 'words' : 'none'}
-              returnKeyType="search"
-              onSubmitEditing={handleSearch}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={handleClear} style={S.clearBtn}>
-                <Ionicons name="close-circle" size={18} color={colors.muted} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={[S.searchBtn, (!searchQuery.trim() || isSearching) && S.searchBtnDisabled]}
-            onPress={handleSearch}
-            disabled={!searchQuery.trim() || isSearching}
-            activeOpacity={0.85}
-          >
-            {isSearching
-              ? <ActivityIndicator size="small" color={colors.white} />
-              : <Ionicons name="search" size={18} color={colors.white} />
-            }
-          </TouchableOpacity>
-        </View>
-
-        {/* Hint */}
-        {!searchDone && !isSearching && (
-          <View style={S.hintRow}>
-            <Ionicons name="information-circle-outline" size={14} color={colors.muted} />
-            <Text style={S.hintText}>
-              {searchMode === 'id'
-                ? 'Enter the member ID to search'
-                : 'Enter full or partial name to search'}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Results / states */}
-      {isSearching ? (
-        <View style={S.centerWrap}>
-          <ActivityIndicator size="large" color={colors.gold} />
-          <Text style={S.loadingText}>Searching members…</Text>
-        </View>
-      ) : searchDone && results.length === 0 ? (
-        <View style={S.centerWrap}>
-          <View style={S.emptyIconWrap}>
-            <Ionicons name="person-remove-outline" size={32} color={colors.muted} />
-          </View>
-          <Text style={S.emptyTitle}>No member found</Text>
-          <Text style={S.emptySub}>
-            Try a different {searchMode === 'id' ? 'ID' : 'name'}
-          </Text>
-        </View>
-      ) : results.length > 0 ? (
-        <FlatList
-          data={results}
-          keyExtractor={(item, i) => item.MID ?? String(i)}
-          renderItem={renderGuest}
-          contentContainerStyle={S.list}
-          showsVerticalScrollIndicator={false}
-        />
-      ) : null}
-    </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -317,13 +347,34 @@ const S = StyleSheet.create({
   navTitle: { fontSize: 18, fontWeight: '800', color: colors.white, letterSpacing: 1 },
   navSub:   { fontSize: 9, color: colors.overlay.muted65, letterSpacing: 1.5, marginTop: 1 },
 
+  navActions: { position: 'relative' },
+
+  cartBadge: {
+    position:        'absolute',
+    top:             -4,
+    right:           -4,
+    minWidth:        16,
+    height:          16,
+    borderRadius:    8,
+    backgroundColor: colors.gold,
+    alignItems:      'center',
+    justifyContent:  'center',
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: {
+    fontSize:   9,
+    fontWeight: '800',
+    color:      colors.primary,
+    lineHeight: 12,
+  },
+
   docChip: {
-    backgroundColor:  colors.docChip.bg,
-    borderRadius:     12,
-    paddingHorizontal:10,
-    paddingVertical:   7,
-    alignItems:       'center',
-    minWidth:         72,
+    backgroundColor:   colors.docChip.bg,
+    borderRadius:      12,
+    paddingHorizontal: 10,
+    paddingVertical:    7,
+    alignItems:        'center',
+    minWidth:          72,
   },
   docChipIconRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 },
   docChipLabel:   { fontSize: 8, color: colors.docChip.labelText, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },

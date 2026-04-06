@@ -321,6 +321,39 @@ visitorDetails: {
   countBadgeBorder:  'rgba(255,255,255,0.4)',
 },
 
+pastOrders: {
+    purpleDeep:  '#3D013C',
+    purple:      '#6C1FC9',
+    purpleSoft:  '#F3EEFF',
+    purpleBorder:'#DDD6FE',
+    amber:       '#B45309',
+    amberSoft:   '#FEF3C7',
+    teal:        '#0F766E',
+    tealSoft:    '#CCFBF1',
+    rose:        '#BE123C',
+    roseSoft:    '#FFE4E6',
+    indigo:      '#4338CA',
+    indigoSoft:  '#EEF2FF',
+    green:       '#15803D',
+    greenSoft:   '#DCFCE7',
+    bg:          '#F5F6FA',
+    card:        '#FFFFFF',
+    border:      '#EDF0F4',
+    textDark:    '#1A1D2E',
+    textMid:     '#6B7280',
+    textLight:   '#B0B8C1',
+    shadowCard:  '#3D013C',
+    emptyIconBg: '#F3F4F6',
+    // field colour schemes
+    fields: {
+      receipt:  { icon: '#4338CA', iconBg: '#EEF2FF', label: '#4338CA',  value: '#1A1D2E' },
+      steward:  { icon: '#B45309', iconBg: '#FEF3C7', label: '#B45309',  value: '#1A1D2E' },
+      dateTime: { icon: '#BE123C', iconBg: '#FFE4E6', label: '#BE123C',  value: '#1A1D2E' },
+      guestId:  { icon: '#0F766E', iconBg: '#CCFBF1', label: '#0F766E',  value: '#1A1D2E' },
+      operator: { icon: '#6C1FC9', iconBg: '#F3EEFF', label: '#6C1FC9',  value: '#1A1D2E' },
+    },
+  },
+
 };
 
 export default colors;

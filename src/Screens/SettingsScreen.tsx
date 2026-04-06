@@ -14,6 +14,7 @@ import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useAppStore } from '../Store/store';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { loadButtonVisibility } from '../Api/api';
+import colors from '../themes/colors';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Button definitions
@@ -94,8 +95,11 @@ function ButtonRow({
 // SettingsScreen
 // ─────────────────────────────────────────────────────────────────────────────
 export default function SettingsScreen({ navigation }: { navigation: any }) {
-  const device = useAppStore(state => state.device);
-  const nav    = useNavigation<any>();
+  const device         = useAppStore(state => state.device);
+const orderItemCount = useAppStore(state => state.orderItemCount);
+const nav            = useNavigation<any>();
+
+const itemCount = orderItemCount();
 
   const [visible, setVisible] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -127,13 +131,14 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
       <StatusBar barStyle="light-content" backgroundColor={PURPLE_DEEP} />
 
       {/* ── Nav bar ── */}
+      {/* ── Nav bar ── */}
       <View style={S.navBar}>
         <TouchableOpacity
           style={S.iconBtn}
           onPress={() => nav.dispatch(DrawerActions.openDrawer())}
           activeOpacity={0.75}
         >
-          <Ionicons name="menu-outline" size={22} color="#fff" />
+          <Ionicons name="menu-outline" size={22} color={colors.white} />
         </TouchableOpacity>
 
         <View style={S.navTitleWrap}>
@@ -141,12 +146,35 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
           <Text style={S.navSub}>Kitchen Order Ticket</Text>
         </View>
 
+        {/* Cart icon */}
+        <View style={S.navActions}>
+          <TouchableOpacity
+            style={S.iconBtn}
+            onPress={() => navigation.navigate('CurrentOrder')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="cart-outline" size={20} color={colors.white} />
+            {itemCount > 0 && (
+              <View style={S.cartBadge}>
+                <Text style={S.cartBadgeText}>
+                  {itemCount > 99 ? '99+' : String(itemCount)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Doc chip */}
         {device?.Doc_No ? (
           <View style={S.docChip}>
-            <Text style={S.docChipText}>#{device.Doc_No}</Text>
+            <View style={S.docChipIconRow}>
+              <Ionicons name="document-text-outline" size={10} color={colors.docChip.labelText} />
+              <Text style={S.docChipLabel}>Doc No</Text>
+            </View>
+            <Text style={S.docChipValue}>{device.Doc_No}</Text>
           </View>
         ) : (
-          <View style={{ width: 60 }} />
+          <View style={{ width: 72 }} />
         )}
       </View>
 
@@ -251,7 +279,7 @@ const S = StyleSheet.create({
   flex: { flex: 1, backgroundColor: BG },
 
   navBar: {
-    backgroundColor:   PURPLE_DEEP,
+    backgroundColor:   colors.primary,
     paddingTop:        Platform.OS === 'ios' ? 52 : 32,
     paddingBottom:     14,
     paddingHorizontal: 12,
@@ -260,19 +288,60 @@ const S = StyleSheet.create({
     gap:               8,
   },
   iconBtn: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
+    width:           36,
+    height:          36,
+    borderRadius:    10,
+    backgroundColor: colors.overlay.white15,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
   navTitleWrap: { flex: 1, alignItems: 'center' },
-  navTitle: { fontSize: 18, fontWeight: '800', color: WHITE, letterSpacing: 1 },
-  navSub:   { fontSize: 9, color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, marginTop: 1 },
-  docChip: {
-    backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)',
+  navTitle: { fontSize: 18, fontWeight: '800', color: colors.white, letterSpacing: 1 },
+  navSub:   { fontSize: 9, color: colors.overlay.muted65, letterSpacing: 1.5, marginTop: 1 },
+
+  navActions: { position: 'relative' },
+
+  cartBadge: {
+    position:          'absolute',
+    top:               -4,
+    right:             -4,
+    minWidth:          16,
+    height:            16,
+    borderRadius:      8,
+    backgroundColor:   colors.gold,
+    alignItems:        'center',
+    justifyContent:    'center',
+    paddingHorizontal: 3,
   },
-  docChipText: { fontSize: 11, color: WHITE, fontWeight: '600' },
+  cartBadgeText: {
+    fontSize:   9,
+    fontWeight: '800',
+    color:      colors.primary,
+    lineHeight: 12,
+  },
+
+  docChip: {
+    backgroundColor:   colors.docChip.bg,
+    borderRadius:      12,
+    paddingHorizontal: 10,
+    paddingVertical:    7,
+    alignItems:        'center',
+    minWidth:          72,
+  },
+  docChipIconRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 },
+  docChipLabel: {
+    fontSize:      8,
+    color:         colors.docChip.labelText,
+    fontWeight:    '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  docChipValue: {
+    fontSize:      15,
+    color:         colors.docChip.valueText,
+    fontWeight:    '900',
+    letterSpacing: -0.3,
+  },
 
   centreWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   loadingText: { fontSize: 14, color: TEXT_MID, fontWeight: '500', marginTop: 8 },

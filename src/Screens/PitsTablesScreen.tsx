@@ -30,6 +30,9 @@ export default function PitsTablesScreen({
   const nav          = useNavigation<any>();
   const { pitName } = route.params as { pitName: string };
   const device = useAppStore(state => state.device);
+  const orderItemCount  = useAppStore(state => state.orderItemCount);
+
+const itemCount = orderItemCount();
 
   const [tables,  setTables]  = useState<PitOrderResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +103,25 @@ export default function PitsTablesScreen({
           <Text style={S.navSub}>Kitchen Order Ticket</Text>
         </View>
 
-        {/* Doc chip — matches ExecutiveStaffScreen */}
+        {/* Cart icon */}
+        <View style={S.navActions}>
+          <TouchableOpacity
+            style={S.iconBtn}
+            onPress={() => navigation.navigate('CurrentOrder')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="cart-outline" size={20} color={colors.white} />
+            {itemCount > 0 && (
+              <View style={S.cartBadge}>
+                <Text style={S.cartBadgeText}>
+                  {itemCount > 99 ? '99+' : String(itemCount)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Doc chip — matches GuestDetailsScreen / ExecutiveStaffScreen */}
         {device?.Doc_No ? (
           <View style={S.docChip}>
             <View style={S.docChipIconRow}>
@@ -260,4 +281,24 @@ const S = StyleSheet.create({
   },
   emptyTitle: { fontSize: 15, fontWeight: '600', color: colors.pitsTables.textMid },
   emptySub:   { fontSize: 12, color: colors.pitsTables.textLight, textAlign: 'center' },
+  navActions: { position: 'relative' },
+
+  cartBadge: {
+    position:          'absolute',
+    top:               -4,
+    right:             -4,
+    minWidth:          16,
+    height:            16,
+    borderRadius:      8,
+    backgroundColor:   colors.gold,
+    alignItems:        'center',
+    justifyContent:    'center',
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: {
+    fontSize:   9,
+    fontWeight: '800',
+    color:      colors.primary,
+    lineHeight: 12,
+  },
 });

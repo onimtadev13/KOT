@@ -104,6 +104,10 @@ export default function PitsPastOrdersScreen({
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState<string | null>(null);
 
+  const orderItemCount  = useAppStore(state => state.orderItemCount);
+
+const itemCount = orderItemCount();
+
   // ── Toggle slide animation ─────────────────────────────────────────────────
   const toggleSlide = useRef(new Animated.Value(0)).current;
 
@@ -275,6 +279,25 @@ function DateInput() {
           <Text style={S.navTitle} numberOfLines={1}>Past Orders</Text>
           <Text style={S.navSub} numberOfLines={1}>{MName}</Text>
         </View>
+        {/* Cart icon */}
+        <View style={S.navActions}>
+          <TouchableOpacity
+            style={S.iconBtn}
+            onPress={() => navigation.navigate('CurrentOrder')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="cart-outline" size={20} color={colors.white} />
+            {itemCount > 0 && (
+              <View style={S.cartBadge}>
+                <Text style={S.cartBadgeText}>
+                  {itemCount > 99 ? '99+' : String(itemCount)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Doc chip — matches GuestDetailsScreen / ExecutiveStaffScreen */}
         {device?.Doc_No ? (
           <View style={S.docChip}>
             <View style={S.docChipIconRow}>

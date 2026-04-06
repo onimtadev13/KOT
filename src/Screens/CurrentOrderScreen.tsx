@@ -64,6 +64,8 @@ export default function CurrentOrderScreen({ navigation }: { navigation: any }) 
   const [deleteBox,         setDeleteBox]         = useState(false);
   const [pendingDeleteItem, setPendingDeleteItem] = useState<KotItemResult | null>(null);
 
+  const [noMemberBox, setNoMemberBox] = useState(false);
+
   const total = orderTotal();
   const ctx   = orderContext;
 
@@ -219,6 +221,13 @@ export default function CurrentOrderScreen({ navigation }: { navigation: any }) 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function handleGoToOrder() {
     if (orderItems.length === 0) return;
+
+    // Guard: a member/guest must be selected before placing an order
+    if (!ctx.type) {
+      setNoMemberBox(true);
+      return;
+    }
+
     setOrderModal(true);
   }
 
@@ -689,6 +698,29 @@ export default function CurrentOrderScreen({ navigation }: { navigation: any }) 
         onDismiss={() => {
           setDeleteBox(false);
           setPendingDeleteItem(null);
+        }}
+      />
+
+      {/* ── No member selected warning ── */}
+      <MessageBox
+        visible={noMemberBox}
+        variant="warning"
+        title="No Member Selected"
+        // message="Please select a guest, visitor, executive staff, or pit member before placing an order."
+          message="Please select a member before placing an order."
+       buttons={[
+          {
+            label:   'OK',
+            style:   'primary',
+            onPress: () => {
+              setNoMemberBox(false);
+              navigation.navigate('Home');
+            },
+          },
+        ]}
+        onDismiss={() => {
+          setNoMemberBox(false);
+          navigation.navigate('Home');
         }}
       />
     </View>

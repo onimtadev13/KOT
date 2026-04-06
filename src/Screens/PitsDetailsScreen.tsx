@@ -19,10 +19,13 @@ import LottieView from 'lottie-react-native';
 // PitsDetailsScreen
 // ─────────────────────────────────────────────────────────────────────────────
 export default function PitsDetailsScreen({ navigation }: { navigation: any }) {
-  const nav          = useNavigation<any>();
-  const device       = useAppStore(state => state.device);
-  const storedPits   = useAppStore(state => state.pits);
-  const setStorePits = useAppStore(state => state.setPits);
+  const nav             = useNavigation<any>();
+const device          = useAppStore(state => state.device);
+const storedPits      = useAppStore(state => state.pits);
+const setStorePits    = useAppStore(state => state.setPits);
+const orderItemCount  = useAppStore(state => state.orderItemCount);
+
+const itemCount = orderItemCount();
 
   const [pits,    setPits]    = useState<PitResult[]>(storedPits);
   const [loading, setLoading] = useState(storedPits.length === 0);
@@ -98,6 +101,24 @@ export default function PitsDetailsScreen({ navigation }: { navigation: any }) {
         <View style={S.navTitleWrap}>
           <Text style={S.navTitle}>Pits</Text>
           <Text style={S.navSub}>Kitchen Order Ticket</Text>
+        </View>
+
+       {/* Cart icon */}
+        <View style={S.navActions}>
+          <TouchableOpacity
+            style={S.iconBtn}
+            onPress={() => navigation.navigate('CurrentOrder')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="cart-outline" size={20} color={colors.white} />
+            {itemCount > 0 && (
+              <View style={S.cartBadge}>
+                <Text style={S.cartBadgeText}>
+                  {itemCount > 99 ? '99+' : String(itemCount)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Doc chip — matches GuestDetailsScreen / ExecutiveStaffScreen */}
@@ -284,4 +305,24 @@ const S = StyleSheet.create({
     marginTop:         6,
   },
   retryText: { fontSize: 14, fontWeight: '700', color: colors.white },
+  navActions: { position: 'relative' },
+
+  cartBadge: {
+    position:          'absolute',
+    top:               -4,
+    right:             -4,
+    minWidth:          16,
+    height:            16,
+    borderRadius:      8,
+    backgroundColor:   colors.gold,
+    alignItems:        'center',
+    justifyContent:    'center',
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: {
+    fontSize:   9,
+    fontWeight: '800',
+    color:      colors.primary,
+    lineHeight: 12,
+  },
 });

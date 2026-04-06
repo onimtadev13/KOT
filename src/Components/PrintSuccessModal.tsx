@@ -49,7 +49,7 @@ export default function PrintSuccessModal({ visible, onDone }: Props) {
             />
           </View>
 
-          <Text style={S.title}>Print Done</Text>
+          <Text style={S.title}>Order Completed</Text>
         </View>
       </View>
     </Modal>

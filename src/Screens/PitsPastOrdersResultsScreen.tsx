@@ -139,11 +139,12 @@ export default function PitsPastOrdersResultsScreen({
     const loginBy   = item.LoginBy    ?? '—';
     const trDate    = item.Tr_Date    ?? '—';
 
-    return (
-      <View style={S.orderCard}>
-        {/* Left accent stripe */}
-        <View style={[S.orderAccent, { backgroundColor: C.purpleDeep }]} />
+    // Cycle through accent colours so adjacent cards are visually distinct
+    const ACCENT_COLORS = ['#3D013C', '#0369A1', '#0F766E', '#B45309', '#B91C1C'];
+    const accentColor = ACCENT_COLORS[index % ACCENT_COLORS.length];
 
+    return (
+      <View style={[S.orderCard, { borderBottomColor: accentColor, borderBottomWidth: 4 }]}>
         <View style={S.orderBody}>
 
           {/* ── Header: index badge + amount ── */}
@@ -478,21 +479,18 @@ const S = StyleSheet.create({
 
   // ── Order card ────────────────────────────────────────────────────────────
   orderCard: {
-    backgroundColor: '#FFFFFF',          // pure white so it lifts off the grey page
+    backgroundColor: '#FFF8F0',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(100, 80, 200, 0.12)', // faint purple tint on border
-    flexDirection: 'row',
+    borderColor: 'rgba(100, 80, 200, 0.12)',
     overflow: 'hidden',
-    // stronger shadow for card-elevation effect
     shadowColor: '#3B1F8C',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.14,
     shadowRadius: 14,
     elevation: 7,
   },
-  orderAccent: { width: 5 },
-  orderBody: { flex: 1, paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
+  orderBody: { paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
 
   // Card header: index badge + amount block
   cardHeader: {

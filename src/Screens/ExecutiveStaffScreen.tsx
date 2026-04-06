@@ -78,11 +78,14 @@ export default function ExecutiveStaffScreen({
 }: {
   navigation: any;
 }) {
-  const nav            = useNavigation<any>();
-  const device         = useAppStore(state => state.device);
-  const storedStaff    = useAppStore(state => state.execStaff);
-  const setStoreStaff  = useAppStore(state => state.setExecStaff);
-  const setOrderContext = useAppStore(state => state.setOrderContext);
+  const nav             = useNavigation<any>();
+const device          = useAppStore(state => state.device);
+const storedStaff     = useAppStore(state => state.execStaff);
+const setStoreStaff   = useAppStore(state => state.setExecStaff);
+const setOrderContext  = useAppStore(state => state.setOrderContext);
+const orderItemCount  = useAppStore(state => state.orderItemCount);
+
+const itemCount = orderItemCount();
 
   const [allStaff, setAllStaff] = useState<ExecStaffResult[]>(storedStaff);
   const [filtered, setFiltered] = useState<ExecStaffResult[]>(storedStaff);
@@ -167,6 +170,24 @@ export default function ExecutiveStaffScreen({
         <View style={S.navTitleWrap}>
           <Text style={S.navTitle}>Executive Staff</Text>
           <Text style={S.navSub}>Kitchen Order Ticket</Text>
+        </View>
+
+        {/* Cart icon */}
+        <View style={S.navActions}>
+          <TouchableOpacity
+            style={S.iconBtn}
+            onPress={() => navigation.navigate('CurrentOrder')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="cart-outline" size={20} color={colors.white} />
+            {itemCount > 0 && (
+              <View style={S.cartBadge}>
+                <Text style={S.cartBadgeText}>
+                  {itemCount > 99 ? '99+' : String(itemCount)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Doc chip — matches GuestDetailsScreen */}
@@ -412,4 +433,24 @@ const S = StyleSheet.create({
     marginTop:         6,
   },
   retryText: { fontSize: 14, fontWeight: '700', color: colors.white },
+  navActions: { position: 'relative' },
+
+  cartBadge: {
+    position:          'absolute',
+    top:               -4,
+    right:             -4,
+    minWidth:          16,
+    height:            16,
+    borderRadius:      8,
+    backgroundColor:   colors.gold,
+    alignItems:        'center',
+    justifyContent:    'center',
+    paddingHorizontal: 3,
+  },
+  cartBadgeText: {
+    fontSize:   9,
+    fontWeight: '800',
+    color:      colors.primary,
+    lineHeight: 12,
+  },
 });
