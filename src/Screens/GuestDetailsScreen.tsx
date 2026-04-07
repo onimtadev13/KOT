@@ -18,6 +18,7 @@ import { useAppStore } from '../Store/store';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import colors from '../themes/colors';
 import { searchGuests, GuestSearchResult } from '../Api/api';
+import ImagePreviewModal from '../Components/ImagePreviewModal';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -26,17 +27,21 @@ type SearchMode = 'id' | 'name';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Avatar
-// ─────────────────────────────────────────────────────────────────────────────
-function Avatar({ guest }: { guest: GuestSearchResult }) {
+function Avatar({ guest, onImagePress }: { guest: GuestSearchResult; onImagePress?: (base64: string) => void }) {
   const initial  = (guest.MName ?? '?').charAt(0).toUpperCase();
   const hasImage = !!guest.MemImage2 && guest.MemImage2.trim() !== '';
 
   if (hasImage) {
     return (
-      <Image
-        source={{ uri: `data:image/png;base64,${guest.MemImage2}` }}
-        style={S.avatar}
-      />
+      <TouchableOpacity
+        onPress={() => onImagePress?.(guest.MemImage2!)}
+        activeOpacity={0.85}
+      >
+        <Image
+          source={{ uri: `data:image/png;base64,${guest.MemImage2}` }}
+          style={S.avatar}
+        />
+      </TouchableOpacity>
     );
   }
 
@@ -67,6 +72,10 @@ export default function GuestDetailsScreen({
   const [isSearching, setIsSearching] = useState(false);
   const [searchDone,  setSearchDone]  = useState(false);
   const [results,     setResults]     = useState<GuestSearchResult[]>([]);
+
+
+  const [previewImage,   setPreviewImage]   = useState<string>('');
+const [previewVisible, setPreviewVisible] = useState(false);
 
   const inputRef = useRef<TextInput>(null);
 
@@ -110,33 +119,39 @@ export default function GuestDetailsScreen({
   }
 
   // ── Guest card ─────────────────────────────────────────────────────────────
-  function renderGuest({ item }: { item: GuestSearchResult }) {
-    return (
-      <View style={S.guestCard}>
-        <View style={S.cardAccent} />
+function renderGuest({ item }: { item: GuestSearchResult }) {
+  return (
+    <View style={S.guestCard}>
+      <View style={S.cardAccent} />
 
-        <View style={S.avatarWrap}>
-          <Avatar guest={item} />
-        </View>
-
-        <View style={S.cardInfo}>
-          <Text style={S.guestName} numberOfLines={2}>{item.MName ?? 'Unknown'}</Text>
-          <View style={S.idChip}>
-            <Ionicons name="card-outline" size={10} color={colors.goldDark} />
-            <Text style={S.idChipText}>{item.MID ?? '—'}</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={S.plusBtn}
-          onPress={() => handleSelect(item)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={22} color={colors.white} />
-        </TouchableOpacity>
+      <View style={S.avatarWrap}>
+        <Avatar
+          guest={item}
+          onImagePress={(base64) => {
+            setPreviewImage(base64);
+            setPreviewVisible(true);
+          }}
+        />
       </View>
-    );
-  }
+
+      <View style={S.cardInfo}>
+        <Text style={S.guestName} numberOfLines={2}>{item.MName ?? 'Unknown'}</Text>
+        <View style={S.idChip}>
+          <Ionicons name="card-outline" size={10} color={colors.goldDark} />
+          <Text style={S.idChipText}>{item.MID ?? '—'}</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={S.plusBtn}
+        onPress={() => handleSelect(item)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={22} color={colors.white} />
+      </TouchableOpacity>
+    </View>
+  );
+}
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -315,6 +330,12 @@ export default function GuestDetailsScreen({
             onScrollBeginDrag={Keyboard.dismiss}
           />
         ) : null}
+<ImagePreviewModal
+        visible={previewVisible}
+        base64={previewImage}
+        onClose={() => setPreviewVisible(false)}
+      />
+        
       </View>
     </TouchableWithoutFeedback>
   );

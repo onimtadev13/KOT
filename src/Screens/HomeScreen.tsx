@@ -78,6 +78,7 @@ export default function HomeScreen({ navigation }: { navigation: any }) {
       case 'EXECUTIVE_STAFF': navigation.navigate('ExecutiveStaff'); break;
       case 'PITS':            navigation.navigate('PitsDetails');    break;
       case 'TABLES':          navigation.navigate('Tables');         break;
+      case 'QR_SCAN': navigation.navigate('QRScan'); break;
       default: break;
     }
   }

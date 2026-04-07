@@ -267,6 +267,7 @@ export default function LoginScreen({ navigation }: Props) {
         </Animated.View>
 
         {/* ── Login card — button is NOT inside here ── */}
+        {/* ── Login card ── */}
         <Animated.View
           style={[S.card, { opacity: cardA, transform: [{ translateY: cardY }] }]}
         >
@@ -345,34 +346,31 @@ export default function LoginScreen({ navigation }: Props) {
             </View>
           </TouchableOpacity>
 
-          {/* Divider — no bottom margin since button lives outside */}
-          <View style={S.divider} />
+          {/* ── Login button — now inside the card, below Change Keypad ── */}
+          <Animated.View style={{ opacity: btnA, transform: [{ scale: btnSc }], marginTop: 18 }}>
+            <TouchableOpacity
+              style={[S.btn, loading && S.btnLoading]}
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.88}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <View style={S.btnInner}>
+                  <Text style={S.btnText}>Login</Text>
+                  <View style={S.btnArrow}>
+                    <Ionicons name="arrow-forward" size={16} color="#6C1FC9" />
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+
         </Animated.View>
       </ScrollView>
 
-      {/* ── Login button — pinned OUTSIDE ScrollView, always visible above keyboard ── */}
-      <Animated.View
-        style={[S.btnWrap, { opacity: btnA, transform: [{ scale: btnSc }] }]}
-      >
-        <TouchableOpacity
-          style={[S.btn, loading && S.btnLoading]}
-          onPress={handleLogin}
-          disabled={loading}
-          activeOpacity={0.88}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <View style={S.btnInner}>
-              <Text style={S.btnText}>Login</Text>
-              <View style={S.btnArrow}>
-                <Ionicons name="arrow-forward" size={16} color="#6C1FC9" />
-              </View>
-            </View>
-          )}
-        </TouchableOpacity>
-      </Animated.View>
-
+      
 
 <MessageBox
         visible={msgBox.visible}

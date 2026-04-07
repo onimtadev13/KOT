@@ -22,6 +22,7 @@ import CurrentOrderScreen         from '../Screens/CurrentOrderScreen';
 import TablesScreen from '../Screens/TablesScreen';
 import PitsPastOrdersScreen from '../Screens/PitsPastOrdersScreen';
 import PitsPastOrdersResultsScreen from '../Screens/PitsPastOrdersResultsScreen';
+import QRScanScreen from '../Screens/QRScanScreen';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Route param lists
@@ -74,6 +75,7 @@ export type AppStackParamList = {
   Tables: undefined;
   PitsPastOrders: { MID: string; MName: string; tblCode: string }; 
   PitsPastOrdersResults: undefined;
+  QRScan: undefined;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,6 +105,7 @@ function AppStackNavigator() {
       <AppStack.Screen name="Tables" component={TablesScreen} />
       <AppStack.Screen name="PitsPastOrders" component={PitsPastOrdersScreen} />
       <AppStack.Screen name="PitsPastOrdersResults" component={PitsPastOrdersResultsScreen} />
+      <AppStack.Screen name="QRScan" component={QRScanScreen} />
 
     </AppStack.Navigator>
   );

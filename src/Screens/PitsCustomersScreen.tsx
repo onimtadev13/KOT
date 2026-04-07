@@ -15,6 +15,7 @@ import { loadPitCustomers, PitCustomerResult } from '../Api/api';
 import { DrawerActions, useNavigation, useFocusEffect } from '@react-navigation/native';
 import colors from '../themes/colors';
 import LottieView from 'lottie-react-native';
+import ImagePreviewModal from '../Components/ImagePreviewModal';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PitsCustomersScreen
@@ -38,6 +39,9 @@ const itemCount = orderItemCount();
   const [customers, setCustomers] = useState<PitCustomerResult[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
+
+  const [previewImage,  setPreviewImage]  = useState<string>('');
+const [previewVisible, setPreviewVisible] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -66,24 +70,32 @@ const itemCount = orderItemCount();
 
   // ── Avatar — base64 image or fallback initial ───────────────────────────────
   function Avatar({ customer }: { customer: PitCustomerResult }) {
-    const initial  = (customer.MName ?? '?').charAt(0).toUpperCase();
-    const hasImage = !!customer.MemImage2 && customer.MemImage2.trim() !== '';
+  const initial  = (customer.MName ?? '?').charAt(0).toUpperCase();
+  const hasImage = !!customer.MemImage2 && customer.MemImage2.trim() !== '';
 
-    if (hasImage) {
-      return (
+  if (hasImage) {
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          setPreviewImage(customer.MemImage2!);
+          setPreviewVisible(true);
+        }}
+        activeOpacity={0.85}
+      >
         <Image
           source={{ uri: `data:image/png;base64,${customer.MemImage2}` }}
           style={S.avatar}
         />
-      );
-    }
-
-    return (
-      <View style={[S.avatar, S.avatarFallback]}>
-        <Text style={S.avatarInitial}>{initial}</Text>
-      </View>
+      </TouchableOpacity>
     );
   }
+
+  return (
+    <View style={[S.avatar, S.avatarFallback]}>
+      <Text style={S.avatarInitial}>{initial}</Text>
+    </View>
+  );
+}
 
   // ── Customer card ───────────────────────────────────────────────────────────
   function renderCustomer({ item }: { item: PitCustomerResult }) {
@@ -216,6 +228,12 @@ const itemCount = orderItemCount();
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <ImagePreviewModal
+        visible={previewVisible}
+        base64={previewImage}
+        onClose={() => setPreviewVisible(false)}
+      />
     </View>
   );
 }

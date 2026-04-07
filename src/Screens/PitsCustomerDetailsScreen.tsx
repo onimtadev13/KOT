@@ -8,7 +8,7 @@ import {
   StatusBar,
   Platform,
   Image,
-  Animated,
+  Animated,     
 } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { useAppStore } from '../Store/store';
@@ -29,6 +29,7 @@ import {
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import colors from '../themes/colors';
 import LottieView from 'lottie-react-native';
+import ImagePreviewModal from '../Components/ImagePreviewModal';
 
 const C = colors.pitCustomer;
 
@@ -47,6 +48,14 @@ function fmt(val: string | number | null | undefined): string {
   const n = Number(val);
   if (isNaN(n)) return String(val);
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// New — same as fmt but no decimal places for display only
+function fmtInt(val: string | number | null | undefined): string {
+  if (val === null || val === undefined || val === '') return '—';
+  const n = Number(val);
+  if (isNaN(n)) return String(val);
+  return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 const TABLE_COLS: {
@@ -71,7 +80,7 @@ const TABLE_COLS: {
     label:  'Drop',
     flex:   1,
     color:  C.stat.currentDrop,           // reuse your green stat colour
-    format: (val) => fmt(val),
+    format: (val) => fmtInt(val),
   },
   {
     key:    'Tr_Date_show',               // human-readable date — skip raw ISO + 'ff'
@@ -91,8 +100,8 @@ const SLOT_COLS: {
 }[] = [
   { key: 'Pit_Name', label: 'Machine',   flex: 0.9 },
   { key: 'TBL_Code', label: 'Type',      flex: 0.8 },
-  { key: 'MDrop',    label: 'Drop',      flex: 1,   color: C.stat.slotDrop, format: (val) => fmt(val) },
-  { key: 'TotDrop',  label: 'Total',     flex: 1,   color: C.stat.avgBet,   format: (val) => fmt(val) },
+  { key: 'MDrop',   label: 'Drop',  flex: 1, color: C.stat.slotDrop, format: (val) => fmtInt(val) },
+  { key: 'TotDrop', label: 'Total', flex: 1, color: C.stat.avgBet,   format: (val) => fmtInt(val) },
   { key: 'FF',       label: 'Date',      flex: 0.9 },
 ];
 
@@ -120,7 +129,7 @@ const DROP_COLS: {
 }[] = [
   { key: 'Pit_Name',     label: 'Pit',        flex: 0.6 },
   { key: 'TBL_Code',     label: 'Table',      flex: 0.8 },
-  { key: 'MDrop',        label: 'Drop',       flex: 1,   color: C.stat.actualDrop, format: (val) => fmt(val) },
+  { key: 'MDrop',        label: 'Drop',       flex: 1,   color: C.stat.actualDrop, format: (val) => fmtInt(val) },
   { key: 'Tr_Date_show', label: 'Date / Time',flex: 1.6 },
 ];
 
@@ -155,23 +164,27 @@ export default function PitsCustomerDetailsScreen({
   const [memberTables,        setMemberTables]        = useState<PitMemberTableResult[]>([]);
   const [memberTablesLoading, setMemberTablesLoading] = useState(false);
   const [memberTablesError,   setMemberTablesError]   = useState<string | null>(null);
-  const [showMemberTables,    setShowMemberTables]    = useState(false);
+  // const [showMemberTables,    setShowMemberTables]    = useState(false);
 
   const [memberSlots,        setMemberSlots]        = useState<PitMemberSlotResult[]>([]);
 const [memberSlotsLoading, setMemberSlotsLoading] = useState(false);
 const [memberSlotsError,   setMemberSlotsError]   = useState<string | null>(null);
-const [showMemberSlots,    setShowMemberSlots]    = useState(false);
+// const [showMemberSlots,    setShowMemberSlots]    = useState(false);
 
 const [memberPoints,        setMemberPoints]        = useState<PitMemberPointsResult[]>([]);
 const [memberPointsLoading, setMemberPointsLoading] = useState(false);
 const [memberPointsError,   setMemberPointsError]   = useState<string | null>(null);
-const [showMemberPoints,    setShowMemberPoints]    = useState(false);
+// const [showMemberPoints,    setShowMemberPoints]    = useState(false);
 
 
 const [memberDrop,        setMemberDrop]        = useState<PitMemberDropResult[]>([]);
 const [memberDropLoading, setMemberDropLoading] = useState(false);
 const [memberDropError,   setMemberDropError]   = useState<string | null>(null);
-const [showMemberDrop,    setShowMemberDrop]    = useState(false);
+// const [showMemberDrop,    setShowMemberDrop]    = useState(false);
+
+const [activeSection, setActiveSection] = useState<'TABLE' | 'SLOT' | 'POINTS' | 'DROP' | null>(null);
+
+const [imagePreviewVisible, setImagePreviewVisible] = useState(false);
 
   const bounceAnim = useRef(new Animated.Value(1)).current;
 
@@ -209,39 +222,31 @@ const [showMemberDrop,    setShowMemberDrop]    = useState(false);
   }
 
 function handleAction(key: string) {
-    console.log('[PIT CUSTOMER] Action:', key, 'MID:', MID);
-    switch (key) {
-      case 'PAST_ORDERS':
-        navigation.navigate('PitsPastOrders', {
-          MID,
-          MName: guest?.MName ?? MName,
-          tblCode,
-        });
-        break;
-
-      case 'TABLE':
-        fetchMemberTables();
-        break;
-
-        case 'SLOT':
-  fetchMemberSlots();
-  break;
-
-  case 'POINTS':
-  fetchMemberPoints();
-  break;
-
-  case 'DROP':
-  fetchMemberDrop();
-  break;
-
-      default:
-        break;
-    }
+  switch (key) {
+    case 'PAST_ORDERS':
+      navigation.navigate('PitsPastOrders', { MID, MName: guest?.MName ?? MName, tblCode });
+      break;
+    case 'TABLE':
+      if (activeSection === 'TABLE') { setActiveSection(null); return; }
+      fetchMemberTables();
+      break;
+    case 'SLOT':
+      if (activeSection === 'SLOT')   { setActiveSection(null); return; }
+      fetchMemberSlots();
+      break;
+    case 'POINTS':
+      if (activeSection === 'POINTS') { setActiveSection(null); return; }
+      fetchMemberPoints();
+      break;
+    case 'DROP':
+      if (activeSection === 'DROP')   { setActiveSection(null); return; }
+      fetchMemberDrop();
+      break;
   }
+}
 
   async function fetchMemberTables() {
-    setShowMemberTables(true);
+    setActiveSection('TABLE'); 
     setMemberTablesLoading(true);
     setMemberTablesError(null);
     try {
@@ -255,7 +260,7 @@ function handleAction(key: string) {
   }
 
   async function fetchMemberSlots() {
-  setShowMemberSlots(true);
+  setActiveSection('SLOT');
   setMemberSlotsLoading(true);
   setMemberSlotsError(null);
   try {
@@ -269,7 +274,7 @@ function handleAction(key: string) {
 }
 
 async function fetchMemberPoints() {
-  setShowMemberPoints(true);
+  setActiveSection('POINTS');
   setMemberPointsLoading(true);
   setMemberPointsError(null);
   try {
@@ -283,7 +288,7 @@ async function fetchMemberPoints() {
 }
 
 async function fetchMemberDrop() {
-  setShowMemberDrop(true);
+  setActiveSection('DROP');
   setMemberDropLoading(true);
   setMemberDropError(null);
   try {
@@ -318,21 +323,23 @@ async function fetchMemberDrop() {
   const rating       = guest?.GuestRating ?? '';
 
   function Avatar() {
-    if (hasImage) {
-      return (
+  if (hasImage) {
+    return (
+      <TouchableOpacity onPress={() => setImagePreviewVisible(true)} activeOpacity={0.85}>
         <Image
           source={{ uri: `data:image/png;base64,${displayImage}` }}
           style={S.avatarImg}
           resizeMode="cover"
         />
-      );
-    }
-    return (
-      <View style={[S.avatarImg, S.avatarFallback]}>
-        <Text style={S.avatarInitial}>{initial}</Text>
-      </View>
+      </TouchableOpacity>
     );
   }
+  return (
+    <View style={[S.avatarImg, S.avatarFallback]}>
+      <Text style={S.avatarInitial}>{initial}</Text>
+    </View>
+  );
+}
 
   function StatRow({
     label, value, icon, color, isLast = false,
@@ -379,7 +386,7 @@ async function fetchMemberDrop() {
         activeOpacity={0.82}
       >
         <View style={[S.actionIconWrap, { backgroundColor: isAddOrder ? colors.overlay.white20 : btn.bg }]}>
-          <Ionicons name={btn.icon as any} size={22} color={btn.color} />
+          <Ionicons name={btn.icon as any} size={15} color={btn.color} />
         </View>
         <Text style={[S.actionLabel, isAddOrder && S.actionLabelAddOrder]}>
           {btn.label}
@@ -390,6 +397,52 @@ async function fetchMemberDrop() {
       </TouchableOpacity>
     );
   }
+
+
+  function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <View style={S.tableStateWrap}>
+      <Ionicons name="cloud-offline-outline" size={28} color={C.textLight} />
+      <Text style={S.tableStateText}>{error}</Text>
+      <TouchableOpacity style={S.tableRetryBtn} onPress={onRetry} activeOpacity={0.8}>
+        <Ionicons name="refresh-outline" size={14} color={colors.white} />
+        <Text style={S.tableRetryText}>Retry</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function EmptyState({ icon, text }: { icon: string; text: string }) {
+  return (
+    <View style={S.tableStateWrap}>
+      <Ionicons name={icon as any} size={28} color={C.textLight} />
+      <Text style={S.tableStateText}>{text}</Text>
+    </View>
+  );
+}
+
+function DataTable({ cols, rows }: { cols: typeof TABLE_COLS; rows: any[] }) {
+  return (
+    <View style={S.dataTable}>
+      <View style={[S.dataRow, S.dataHeaderRow]}>
+        {cols.map(col => (
+          <Text key={col.key} style={[S.dataCell, S.dataHeaderCell, col.flex ? { flex: col.flex } : {}]} numberOfLines={1}>
+            {col.label}
+          </Text>
+        ))}
+      </View>
+      {rows.map((row, rowIdx) => (
+        <View key={rowIdx} style={[S.dataRow, rowIdx % 2 === 1 && S.dataRowAlt, rowIdx === rows.length - 1 && S.dataRowLast]}>
+          {cols.map(col => (
+            <Text key={col.key} style={[S.dataCell, col.flex ? { flex: col.flex } : {}, col.color ? { color: col.color } : {}]} numberOfLines={2}>
+              {col.format ? col.format(row[col.key]) : (row[col.key] == null || row[col.key] === '' ? '—' : String(row[col.key]))}
+            </Text>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
 
   return (
     <View style={S.flex}>
@@ -506,7 +559,7 @@ async function fetchMemberDrop() {
             <View style={S.statsSection}>
               <StatRow
                 label="Current Drop (Table)"
-                value={fmt(drop?.CurrentDrop)}
+                value={fmtInt(drop?.CurrentDrop)} 
                 icon="easel-outline"
                 color={C.stat.currentDrop}
               />
@@ -524,7 +577,7 @@ async function fetchMemberDrop() {
               />
               <StatRow
                 label="Actual Drop"
-                value={fmt(drop?.Actual_Drop)}
+                value={fmtInt(drop?.Actual_Drop)} 
                 icon="arrow-down-circle-outline"
                 color={C.stat.actualDrop}
                 isLast
@@ -542,98 +595,29 @@ async function fetchMemberDrop() {
             ))}
           </View>
 
-          {/* ── Member Tables result ── */}
-          {showMemberTables && (
-            <View style={S.tableSection}>
-
-              {/* Section header */}
-              <View style={S.tableSectionHeader}>
-                <View style={S.tableSectionIconWrap}>
-                  <Ionicons name="easel-outline" size={15} color={C.purpleDeep} />
-                </View>
-                <Text style={S.tableSectionTitle}>Table Details</Text>
-                <TouchableOpacity
-                  onPress={() => setShowMemberTables(false)}
-                  style={S.tableSectionClose}
-                  activeOpacity={0.75}
-                >
-                  <Ionicons name="close" size={16} color={C.textMid} />
-                </TouchableOpacity>
-              </View>
-
-              {memberTablesLoading ? (
-                <View style={S.tableStateWrap}>
-                  <LottieView
-                    source={require('../../assets/animations/Loading_Animation.json')}
-                    autoPlay
-                    loop
-                    style={{ width: 80, height: 80 }}
-                  />
-                </View>
-
-              ) : memberTablesError ? (
-                <View style={S.tableStateWrap}>
-                  <Ionicons name="cloud-offline-outline" size={28} color={C.textLight} />
-                  <Text style={S.tableStateText}>{memberTablesError}</Text>
-                  <TouchableOpacity style={S.tableRetryBtn} onPress={fetchMemberTables} activeOpacity={0.8}>
-                    <Ionicons name="refresh-outline" size={14} color={colors.white} />
-                    <Text style={S.tableRetryText}>Retry</Text>
-                  </TouchableOpacity>
-                </View>
-
-              ) : memberTables.length === 0 ? (
-                <View style={S.tableStateWrap}>
-                  <Ionicons name="grid-outline" size={28} color={C.textLight} />
-                  <Text style={S.tableStateText}>No table data found</Text>
-                </View>
-
-              ) : (
-  <View style={S.dataTable}>
-    {/* Fixed header */}
-    <View style={[S.dataRow, S.dataHeaderRow]}>
-      {TABLE_COLS.map(col => (
-        <Text key={col.key} style={[S.dataCell, S.dataHeaderCell, col.flex ? { flex: col.flex } : {}]} numberOfLines={1}>
-          {col.label}
-        </Text>
-      ))}
-    </View>
-
-    {/* Data rows */}
-    {memberTables.map((row, rowIdx) => (
-      <View
-        key={rowIdx}
-        style={[S.dataRow, rowIdx % 2 === 1 && S.dataRowAlt, rowIdx === memberTables.length - 1 && S.dataRowLast]}
-      >
-        {TABLE_COLS.map(col => (
-          <Text
-            key={col.key}
-            style={[S.dataCell, col.flex ? { flex: col.flex } : {}, col.color ? { color: col.color } : {}]}
-            numberOfLines={2}
-          >
-            {col.format
-              ? col.format(row[col.key])
-              : (row[col.key] === null || row[col.key] === undefined || row[col.key] === '' ? '—' : String(row[col.key]))}
-          </Text>
-        ))}
-      </View>
-    ))}
-  </View>
-)}
-              
-            </View>
-          )}
-
-          {/* ── Member Slots result ── */}
-{showMemberSlots && (
+          {activeSection && (
   <View style={S.tableSection}>
-
+    {/* Header */}
     <View style={S.tableSectionHeader}>
       <View style={S.tableSectionIconWrap}>
-        <Ionicons name="game-controller-outline" size={15} color={C.purpleDeep} />
+        <Ionicons
+          name={
+            activeSection === 'TABLE'  ? 'easel-outline' :
+            activeSection === 'SLOT'   ? 'game-controller-outline' :
+            activeSection === 'POINTS' ? 'star-outline' :
+            'trending-down-outline'
+          }
+          size={15} color={C.purpleDeep}
+        />
       </View>
-      <Text style={S.tableSectionTitle}>Slot Details</Text>
+      <Text style={S.tableSectionTitle}>
+        {activeSection === 'TABLE'  ? 'Table Details'  :
+         activeSection === 'SLOT'   ? 'Slot Details'   :
+         activeSection === 'POINTS' ? 'Points Details' :
+         'Drop Details'}
+      </Text>
       <TouchableOpacity
-        onPress={() => setShowMemberSlots(false)}
+        onPress={() => setActiveSection(null)}
         style={S.tableSectionClose}
         activeOpacity={0.75}
       >
@@ -641,238 +625,52 @@ async function fetchMemberDrop() {
       </TouchableOpacity>
     </View>
 
-    {memberSlotsLoading ? (
+    {/* Loading */}
+    {(memberTablesLoading || memberSlotsLoading || memberPointsLoading || memberDropLoading) ? (
       <View style={S.tableStateWrap}>
-        <LottieView
-          source={require('../../assets/animations/Loading_Animation.json')}
-          autoPlay
-          loop
-          style={{ width: 80, height: 80 }}
-        />
+        <LottieView source={require('../../assets/animations/Loading_Animation.json')} autoPlay loop style={{ width: 80, height: 80 }} />
       </View>
 
-    ) : memberSlotsError ? (
-      <View style={S.tableStateWrap}>
-        <Ionicons name="cloud-offline-outline" size={28} color={C.textLight} />
-        <Text style={S.tableStateText}>{memberSlotsError}</Text>
-        <TouchableOpacity style={S.tableRetryBtn} onPress={fetchMemberSlots} activeOpacity={0.8}>
-          <Ionicons name="refresh-outline" size={14} color={colors.white} />
-          <Text style={S.tableRetryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
+    ) : /* Error */ (
+      activeSection === 'TABLE'  && memberTablesError  ? <ErrorState error={memberTablesError}  onRetry={fetchMemberTables}  /> :
+      activeSection === 'SLOT'   && memberSlotsError   ? <ErrorState error={memberSlotsError}   onRetry={fetchMemberSlots}   /> :
+      activeSection === 'POINTS' && memberPointsError  ? <ErrorState error={memberPointsError}  onRetry={fetchMemberPoints}  /> :
+      activeSection === 'DROP'   && memberDropError    ? <ErrorState error={memberDropError}    onRetry={fetchMemberDrop}    /> :
 
-    ) : memberSlots.length === 0 ? (
-      <View style={S.tableStateWrap}>
-        <Ionicons name="game-controller-outline" size={28} color={C.textLight} />
-        <Text style={S.tableStateText}>No slot data found</Text>
-      </View>
+      /* Empty */
+      activeSection === 'TABLE'  && memberTables.length  === 0 ? <EmptyState icon="grid-outline"            text="No table data found"  /> :
+      activeSection === 'SLOT'   && memberSlots.length   === 0 ? <EmptyState icon="game-controller-outline" text="No slot data found"   /> :
+      activeSection === 'POINTS' && memberPoints.length  === 0 ? <EmptyState icon="star-outline"            text="No points data found" /> :
+      activeSection === 'DROP'   && memberDrop.length    === 0 ? <EmptyState icon="trending-down-outline"   text="No drop data found"   /> :
 
-    ) : (
-      <View style={S.dataTable}>
-        <View style={[S.dataRow, S.dataHeaderRow]}>
-          {SLOT_COLS.map(col => (
-            <Text
-              key={col.key}
-              style={[S.dataCell, S.dataHeaderCell, col.flex ? { flex: col.flex } : {}]}
-              numberOfLines={1}
-            >
-              {col.label}
-            </Text>
-          ))}
-        </View>
-
-        {memberSlots.map((row, rowIdx) => (
-          <View
-            key={rowIdx}
-            style={[S.dataRow, rowIdx % 2 === 1 && S.dataRowAlt, rowIdx === memberSlots.length - 1 && S.dataRowLast]}
-          >
-            {SLOT_COLS.map(col => (
-              <Text
-                key={col.key}
-                style={[S.dataCell, col.flex ? { flex: col.flex } : {}, col.color ? { color: col.color } : {}]}
-                numberOfLines={2}
-              >
-                {col.format
-                  ? col.format(row[col.key])
-                  : (row[col.key] === null || row[col.key] === undefined || row[col.key] === '' ? '—' : String(row[col.key]))}
-              </Text>
-            ))}
-          </View>
-        ))}
-      </View>
+      /* Data table */
+      <DataTable
+        cols={
+          activeSection === 'TABLE'  ? TABLE_COLS  :
+          activeSection === 'SLOT'   ? SLOT_COLS   :
+          activeSection === 'POINTS' ? POINTS_COLS :
+          DROP_COLS
+        }
+        rows={
+          activeSection === 'TABLE'  ? memberTables  :
+          activeSection === 'SLOT'   ? memberSlots   :
+          activeSection === 'POINTS' ? memberPoints  :
+          memberDrop
+        }
+      />
     )}
-
-  </View>
-)}
-
-
-{/* ── Member Points result ── */}
-{showMemberPoints && (
-  <View style={S.tableSection}>
-
-    <View style={S.tableSectionHeader}>
-      <View style={S.tableSectionIconWrap}>
-        <Ionicons name="star-outline" size={15} color={C.purpleDeep} />
-      </View>
-      <Text style={S.tableSectionTitle}>Points Details</Text>
-      <TouchableOpacity
-        onPress={() => setShowMemberPoints(false)}
-        style={S.tableSectionClose}
-        activeOpacity={0.75}
-      >
-        <Ionicons name="close" size={16} color={C.textMid} />
-      </TouchableOpacity>
-    </View>
-
-    {memberPointsLoading ? (
-      <View style={S.tableStateWrap}>
-        <LottieView
-          source={require('../../assets/animations/Loading_Animation.json')}
-          autoPlay
-          loop
-          style={{ width: 80, height: 80 }}
-        />
-      </View>
-
-    ) : memberPointsError ? (
-      <View style={S.tableStateWrap}>
-        <Ionicons name="cloud-offline-outline" size={28} color={C.textLight} />
-        <Text style={S.tableStateText}>{memberPointsError}</Text>
-        <TouchableOpacity style={S.tableRetryBtn} onPress={fetchMemberPoints} activeOpacity={0.8}>
-          <Ionicons name="refresh-outline" size={14} color={colors.white} />
-          <Text style={S.tableRetryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-
-    ) : memberPoints.length === 0 ? (
-      <View style={S.tableStateWrap}>
-        <Ionicons name="star-outline" size={28} color={C.textLight} />
-        <Text style={S.tableStateText}>No points data found</Text>
-      </View>
-
-    ) : (
-      <View style={S.dataTable}>
-        <View style={[S.dataRow, S.dataHeaderRow]}>
-          {POINTS_COLS.map(col => (
-            <Text
-              key={col.key}
-              style={[S.dataCell, S.dataHeaderCell, col.flex ? { flex: col.flex } : {}]}
-              numberOfLines={1}
-            >
-              {col.label}
-            </Text>
-          ))}
-        </View>
-
-        {memberPoints.map((row, rowIdx) => (
-          <View
-            key={rowIdx}
-            style={[S.dataRow, rowIdx % 2 === 1 && S.dataRowAlt, rowIdx === memberPoints.length - 1 && S.dataRowLast]}
-          >
-            {POINTS_COLS.map(col => (
-              <Text
-                key={col.key}
-                style={[S.dataCell, col.flex ? { flex: col.flex } : {}, col.color ? { color: col.color } : {}]}
-                numberOfLines={2}
-              >
-                {col.format
-                  ? col.format(row[col.key])
-                  : (row[col.key] === null || row[col.key] === undefined || row[col.key] === '' ? '—' : String(row[col.key]))}
-              </Text>
-            ))}
-          </View>
-        ))}
-      </View>
-    )}
-
-  </View>
-)}
-
-
-{/* ── Member Drop result ── */}
-{showMemberDrop && (
-  <View style={S.tableSection}>
-
-    <View style={S.tableSectionHeader}>
-      <View style={S.tableSectionIconWrap}>
-        <Ionicons name="trending-down-outline" size={15} color={C.purpleDeep} />
-      </View>
-      <Text style={S.tableSectionTitle}>Drop Details</Text>
-      <TouchableOpacity
-        onPress={() => setShowMemberDrop(false)}
-        style={S.tableSectionClose}
-        activeOpacity={0.75}
-      >
-        <Ionicons name="close" size={16} color={C.textMid} />
-      </TouchableOpacity>
-    </View>
-
-    {memberDropLoading ? (
-      <View style={S.tableStateWrap}>
-        <LottieView
-          source={require('../../assets/animations/Loading_Animation.json')}
-          autoPlay
-          loop
-          style={{ width: 80, height: 80 }}
-        />
-      </View>
-
-    ) : memberDropError ? (
-      <View style={S.tableStateWrap}>
-        <Ionicons name="cloud-offline-outline" size={28} color={C.textLight} />
-        <Text style={S.tableStateText}>{memberDropError}</Text>
-        <TouchableOpacity style={S.tableRetryBtn} onPress={fetchMemberDrop} activeOpacity={0.8}>
-          <Ionicons name="refresh-outline" size={14} color={colors.white} />
-          <Text style={S.tableRetryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-
-    ) : memberDrop.length === 0 ? (
-      <View style={S.tableStateWrap}>
-        <Ionicons name="trending-down-outline" size={28} color={C.textLight} />
-        <Text style={S.tableStateText}>No drop data found</Text>
-      </View>
-
-    ) : (
-      <View style={S.dataTable}>
-        <View style={[S.dataRow, S.dataHeaderRow]}>
-          {DROP_COLS.map(col => (
-            <Text
-              key={col.key}
-              style={[S.dataCell, S.dataHeaderCell, col.flex ? { flex: col.flex } : {}]}
-              numberOfLines={1}
-            >
-              {col.label}
-            </Text>
-          ))}
-        </View>
-
-        {memberDrop.map((row, rowIdx) => (
-          <View
-            key={rowIdx}
-            style={[S.dataRow, rowIdx % 2 === 1 && S.dataRowAlt, rowIdx === memberDrop.length - 1 && S.dataRowLast]}
-          >
-            {DROP_COLS.map(col => (
-              <Text
-                key={col.key}
-                style={[S.dataCell, col.flex ? { flex: col.flex } : {}, col.color ? { color: col.color } : {}]}
-                numberOfLines={2}
-              >
-                {col.format
-                  ? col.format(row[col.key])
-                  : (row[col.key] === null || row[col.key] === undefined || row[col.key] === '' ? '—' : String(row[col.key]))}
-              </Text>
-            ))}
-          </View>
-        ))}
-      </View>
-    )}
-
   </View>
 )}
 
         </ScrollView>
       )}
+
+      {/* ── Image Preview Modal ── */}
+<ImagePreviewModal
+  visible={imagePreviewVisible}
+  base64={displayImage}
+  onClose={() => setImagePreviewVisible(false)}
+/>
     </View>
   );
 }
@@ -1062,31 +860,32 @@ const S = StyleSheet.create({
     flexWrap:         'wrap',
     marginHorizontal: 14,
     marginBottom:     24,
-    gap:              10,
+    gap:              8,
   },
 
   // Each wrapper is exactly 1/3 of the row minus gaps: (100% - 2×10) / 3
   actionBtnWrap: {
-    width:  '30%',
+    width:  '31%',
     flexGrow: 1,
   },
 
-  actionBtn: {
-    backgroundColor: C.card,
-    borderRadius:    14,
-    borderWidth:     1,
-    borderColor:     C.border,
-    padding:         14,
-    height:          110,           // fixed height — all cards identical
-    alignItems:      'flex-start',
-    justifyContent:  'space-between',
-    shadowColor:     colors.shadow.card,
-    shadowOffset:    { width: 0, height: 1 },
-    shadowOpacity:   0.07,
-    shadowRadius:    6,
-    elevation:       2,
-    position:        'relative',
-  },
+ actionBtn: {
+  backgroundColor:   C.card,
+  borderRadius:      14,
+  borderWidth:       1,
+  borderColor:       C.border,
+  paddingHorizontal: 10,
+  paddingTop:        8,
+  paddingBottom:     8,
+  alignItems:        'flex-start',
+  justifyContent:    'flex-start',
+  shadowColor:       colors.shadow.card,
+  shadowOffset:      { width: 0, height: 1 },
+  shadowOpacity:     0.07,
+  shadowRadius:      6,
+  elevation:         2,
+  position:          'relative',
+},
 
   // Add Order card — same size, purple background
   actionBtnAddOrder: {
@@ -1098,8 +897,8 @@ const S = StyleSheet.create({
   },
 
   actionIconWrap: {
-    width:          46,
-    height:         46,
+    width:          26,
+    height:         26,
     borderRadius:   13,
     alignItems:     'center',
     justifyContent: 'center',
@@ -1264,4 +1063,33 @@ const S = StyleSheet.create({
     fontSize:   10,
     letterSpacing: 0.3,
   },
+  // ── Image Preview Modal ────────────────────────────────────────────────────
+previewOverlay: {
+  flex:            1,
+  backgroundColor: 'rgba(0,0,0,0.85)',
+  alignItems:      'center',
+  justifyContent:  'center',
+},
+previewContainer: {
+  width:        280,
+  height:       280,
+  borderRadius: 20,
+  overflow:     'hidden',
+  position:     'relative',
+},
+previewImage: {
+  width:  '100%',
+  height: '100%',
+},
+previewCloseBtn: {
+  position:        'absolute',
+  top:             10,
+  right:           10,
+  width:           32,
+  height:          32,
+  borderRadius:    16,
+  backgroundColor: 'rgba(0,0,0,0.55)',
+  alignItems:      'center',
+  justifyContent:  'center',
+},
 });
